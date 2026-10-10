@@ -1,0 +1,8 @@
+
+.direnv
+*.7z
+*.zip
+**/__pycache__
+**/__pycache__/**
+__pycache__
+.ruff_cache

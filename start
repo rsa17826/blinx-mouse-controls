@@ -9,5 +9,5 @@ else
 fi
 python fix_wrong_walk_dir.py
 python install_asia_mouselook.py 0x00141ee5
-python install_asia_position.py 0x001d797c 0x00141fa9 -20 -20
+python install_asia_position.py 0x001d797c 0x00141fa9 -15 -10
 python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
