@@ -1,0 +1,27 @@
+@file \.py$
+@regex dword (?!ptr)
+@info Keystone needs dword ptr [...], not bare dword [...]
+@endregex
+@name strip py comments
+@js
+const replaces = []
+// Match triple-quoted strings across multiple lines
+const regex = /"""([\s\S]*?)"""/g
+let match
+
+// return a
+while ((match = regex.exec(text)) !== null) {
+  const fullMatch = match[0]
+  const start = match.index
+  const end = start + fullMatch.length
+
+  // Remove comment lines starting with # or ; and inline ; comments
+  const newText = fullMatch.replace(/^ *[;#].*\n?|;.*/gm, "")
+
+  if (fullMatch !== newText) {
+    replaces.push({ start, end, text: newText })
+  }
+}
+
+return replaces
+@endjs

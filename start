@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+PIDFILE="/tmp/virtual_xbox_controller.pid"
+if test -f "$PIDFILE" && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+  echo "Virtual Xbox controller is already running."
+else
+  echo "Starting virtual Xbox controller..."
+  setsid python plug_controller.py > /dev/null 2>&1 &
+  disown
+fi
+python fix_wrong_walk_dir.py
+python install_asia_mouselook.py 0x00141ee5
+python install_asia_position.py 0x001d797c 0x00141fa9 -20 -20
+python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
