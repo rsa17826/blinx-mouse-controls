@@ -170,7 +170,6 @@ def main():
 
   STRAFE_SIGN = 1.0
 
-
   def update_left_stick():
     heading_addr = yaw_addr + 12
 
@@ -180,6 +179,7 @@ def main():
     # When no movement keys are held, center the analog stick completely (0, 0)
     # This frees up the stick so menus work normally.
     if side == 0 and fwd == 0:
+      writer.write_float(heading_addr, 0.0)
       gamepad.write(e.EV_ABS, e.ABS_X, 0)
       gamepad.write(e.EV_ABS, e.ABS_Y, 0)
       gamepad.syn()
@@ -203,6 +203,7 @@ def main():
     gamepad.write(e.EV_ABS, e.ABS_X, lx)
     gamepad.write(e.EV_ABS, e.ABS_Y, ly)
     gamepad.syn()
+
   def flush_loop():
     interval = 1.0 / args.rate
     while not stop_event.wait(interval):
