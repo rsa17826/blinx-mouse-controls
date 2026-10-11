@@ -10,5 +10,5 @@ fi
 python disable_autoaim.py
 python fix_wrong_walk_dir.py 0x1d7b00
 python install_asia_mouselook.py 0x00141ee5
-python install_asia_position.py 0x001d797c 0x00141fa9 -15 -25
+python install_asia_position.py 0x001d797c 0x00141fa9 -5 10
 python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"

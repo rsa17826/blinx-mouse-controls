@@ -26,12 +26,20 @@ def main():
     os.remove(PIDFILE)
     sys.exit(f"pidfile pointed at pid {pid}, but that process was already gone. Removed the stale pidfile.")
 
-  for _ in range(50):
+  for _ in range(10):
     if not os.path.exists(PIDFILE):
       print("Controller unplugged.")
       return
 
     time.sleep(0.1)
+
+  try:
+    os.kill(pid, signal.SIGKILL)
+    os.remove(PIDFILE)
+
+  except ProcessLookupError:
+    os.remove(PIDFILE)
+    sys.exit(f"pidfile pointed at pid {pid}, but that process was already gone. Removed the stale pidfile.")
 
   sys.exit(f"Sent SIGTERM to pid {pid} but it hasn't cleaned up after 5s - check on it manually.")
 
