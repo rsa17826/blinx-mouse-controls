@@ -1,38 +1,25 @@
 #!/usr/bin/env python3
-"""Dump every player-struct float that is angle-like relative to heading, plus u16 angle candidates."""
-
-import math
-import struct
+"""Disable the player-heading store inside the yaw trampoline (test only)."""
 import sys
 
 sys.path.insert(0, ".")
-from gdb_rsp import connect, read_memory, cmd_continue
+from gdb_rsp import connect, read_memory, write_memory, cmd_continue
 
-PLAYER = 0x4EAA20
-SIZE = 0x200
-HEADING_OFF = 0x8C
-TWO_PI = 2 * math.pi
-
-
-def angdiff(a, b):
-  d = (a - b + math.pi) % TWO_PI - math.pi
-  return d
-
+TRAMPOLINE = 0x00141F25 # cave 0x141ee5 + 64
+OLD = bytes.fromhex("d95824")
+NEW = bytes.fromhex("ddd890")
 
 sock = connect()
-data = read_memory(sock, PLAYER, SIZE)
+code = read_memory(sock, TRAMPOLINE, 64)
+if code.count(OLD) != 1:
+  cmd_continue(sock)
+  raise RuntimeError(f"expected exactly one {OLD.hex()} in yaw trampoline, found {code.count(OLD)}: {code.hex()}")
+
+addr = TRAMPOLINE + code.index(OLD)
+write_memory(sock, addr, NEW)
+if read_memory(sock, addr, 3) != NEW:
+  cmd_continue(sock)
+  raise RuntimeError("write verification failed")
+
 cmd_continue(sock)
-
-heading = struct.unpack_from("<f", data, HEADING_OFF)[0]
-print(f"heading={heading:.3f}")
-for off in range(0, SIZE - 3, 4):
-  v = struct.unpack_from("<f", data, off)[0]
-  if not (-10.0 < v < 10.0) or v == 0.0 or v != v:
-    continue
-
-  for label, ref in (("h", heading), ("h-pi", heading - math.pi), ("h+pi", heading + math.pi)):
-    d = angdiff(v, ref)
-    if abs(d) < 0.5:
-      print(f"  +0x{off:03x} = {v:.3f}  ({label} {math.degrees(d):+.1f} deg)")
-
-
+print(f"heading store disabled at 0x{addr:x}")
