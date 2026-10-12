@@ -8,7 +8,8 @@ else
   disown
 fi
 python disable_autoaim.py
+python install_zero_stick_angle.py 0x1d7c00
 python fix_wrong_walk_dir.py 0x1d7b00
 python install_asia_mouselook.py 0x00141ee5
-python install_asia_position.py 0x001d797c 0x00141fa9 -10 -20
+python install_asia_position.py 0x001d797c 0x00141fa9 -18 -25
 python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
