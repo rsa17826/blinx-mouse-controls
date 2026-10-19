@@ -59,14 +59,10 @@ class FastMemWriter:
     self.fd = open(f"/proc/{pid}/mem", "r+b", buffering=0)
 
   def write_float(self, virtual_addr, value):
-    host_addr = RAM_HOST_BASE + virtual_addr + PHYS_OFFSET
-    self.fd.seek(host_addr)
-    self.fd.write(struct.pack("<f", value))
+    os.pwrite(self.fd.fileno(), struct.pack("<f", value), RAM_HOST_BASE + virtual_addr + PHYS_OFFSET)
 
   def read_float(self, virtual_addr):
-    host_addr = RAM_HOST_BASE + virtual_addr + PHYS_OFFSET
-    self.fd.seek(host_addr)
-    return struct.unpack("<f", self.fd.read(4))[0]
+    return struct.unpack("<f", os.pread(self.fd.fileno(), 4, RAM_HOST_BASE + virtual_addr + PHYS_OFFSET))[0]
 
   def close(self):
     self.fd.close()
