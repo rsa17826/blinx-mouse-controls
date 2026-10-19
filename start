@@ -4,12 +4,12 @@ if test -f "$PIDFILE" && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   echo "Virtual Xbox controller is already running."
 else
   echo "Starting virtual Xbox controller..."
-  setsid python plug_controller.py > /dev/null 2>&1 &
+  setsid python plug_controller.py >/dev/null 2>&1 &
   disown
 fi
 python disable_autoaim.py
 python install_zero_stick_angle.py 0x1d7c00
 python fix_wrong_walk_dir.py 0x1d7b00
-python install_asia_mouselook.py 0x00141ee5
-python install_asia_position.py 0x001d797c 0x00141fa9 -18 -25
-python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
+python install_asia_mouselook.py 0x00141ee5 &&
+  python install_asia_position.py 0x001d797c 0x00141fa9 -18 -25 &&
+  python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"

@@ -52,20 +52,29 @@ YAW_HOOK_ADDR = 0x00023183
 YAW_HOOK_LEN = 6
 YAW_RETURN_ADDR = 0x00023189
 
-# Third FMUL in this same sequence (confirmed via disassembly), computing
-# ROLL from (DAT_009dd6fc - int(DAT_009dd750)) * 9.587378e-05. We don't drive
-# roll from the mouse at all, but DAT_009dd750 (fed by FUN_00126c6c(), a raw
-# input poll) appears to return a huge/uninitialized value once IMan takes
-# exclusive control of the mouse, so this calculation was feeding a garbage
-# ~100,000 rad "roll" into the camera every frame. Hook it the same way as
-# pitch/yaw (discard leftover ST(0), same net stack effect as the FMUL it
-# replaces) but push a constant 0.0 instead of a scratch value, neutralizing
-# it entirely.
 ROLL_HOOK_ADDR = 0x00023199
 ROLL_HOOK_LEN = 6
 ROLL_RETURN_ADDR = 0x0002319F
 
 TRAMPOLINE_BUDGET = 64
+
+CUTSCENE_FLAG_ADDR = 0x9dd79c
+FMUL_ABS_PREFIX = bytes.fromhex("d80d")
+TAIL_SIZE = 16
+
+
+def cutscene_check(tail_addr):
+  return f"""
+        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
+        jne 0x{tail_addr:x}
+    """
+
+
+def build_original_tail(ks, tail_addr, original, return_addr):
+  # if original[:2] != FMUL_ABS_PREFIX:
+  #   raise RuntimeError(f"Original bytes at hook are not fmul [abs32]: {original.hex()}")
+
+  return original + asm(ks, f"jmp 0x{return_addr:x}", tail_addr + len(original))
 
 
 def asm(ks, code, address):
@@ -76,20 +85,9 @@ def asm(ks, code, address):
   return bytes(encoding)
 
 
-def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr):
-  # The original instruction here was FMUL (multiply-in-place: replaces ST(0)
-  # with ST(0)*src, net stack depth unchanged). ST(0) already holds the
-  # delta the preceding FSUB computed. Our replacement must have the same net
-  # stack effect - just FLD-ing our own value on top, without first
-  # discarding that leftover ST(0), leaks one FPU stack entry every single
-  # frame this hook fires. The x87 stack is only 8 deep and circular, so it
-  # overflows almost immediately and FLD/FSTP start reading/writing wrapped
-  # garbage registers - this was the actual source of the huge/erratic
-  # values and cross-axis rotation bleeding seen at runtime, not a units or
-  # address-mapping bug. `fstp st(0)` is the standard idiom for "discard top
-  # of FPU stack" - it restores the same net effect (modify-in-place) as the
-  # FMUL we removed.
+def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
   code = f"""
+        {cutscene_check(tail_addr)}
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
         jmp 0x{return_addr:x}
@@ -101,11 +99,9 @@ def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr):
   return encoded
 
 
-def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr):
-  # Loads camera yaw, duplicates it via stack memory, adds PI for player heading,
-  # and leaves camera yaw (plus render_yaw_offset, default 0.0) on top of the FPU
-  # stack for the game engine to render with.
+def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, tail_addr):
   code = f"""
+        {cutscene_check(tail_addr)}
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
         push eax
@@ -123,7 +119,6 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
         pop edx
         pop eax
         jmp 0x{return_addr:x}
-
     """
   encoded = asm(ks, code, cave_addr)
   if len(encoded) > TRAMPOLINE_BUDGET:
@@ -132,8 +127,9 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
   return encoded
 
 
-def build_roll_trampoline(ks, cave_addr, return_addr):
+def build_roll_trampoline(ks, cave_addr, return_addr, tail_addr):
   code = f"""
+        {cutscene_check(tail_addr)}
         fstp st(0)
         fldz
         jmp 0x{return_addr:x}
@@ -172,6 +168,12 @@ def main():
   cave_addr = int(sys.argv[1], 16)
   ks = Ks(KS_ARCH_X86, KS_MODE_32)
 
+  sock = connect()
+
+  orig_pitch = read_memory(sock, PITCH_HOOK_ADDR, PITCH_HOOK_LEN)
+  orig_yaw = read_memory(sock, YAW_HOOK_ADDR, YAW_HOOK_LEN)
+  orig_roll = read_memory(sock, ROLL_HOOK_ADDR, ROLL_HOOK_LEN)
+
   pitch_trampoline_addr = cave_addr
   yaw_trampoline_addr = cave_addr + TRAMPOLINE_BUDGET
   roll_trampoline_addr = cave_addr + 2 * TRAMPOLINE_BUDGET
@@ -180,6 +182,12 @@ def main():
   pi_scratch_addr = yaw_value_addr + 4
   render_yaw_offset_addr = pi_scratch_addr + 4
 
+  heading_offset_addr = render_yaw_offset_addr + 4
+  tails_base = heading_offset_addr + 4 + 4
+  pitch_tail_addr = tails_base
+  yaw_tail_addr = tails_base + TAIL_SIZE
+  roll_tail_addr = tails_base + 2 * TAIL_SIZE
+
   print(f"Cave base:            0x{cave_addr:08x}")
   print(f"Pitch trampoline:     0x{pitch_trampoline_addr:08x}")
   print(f"Yaw trampoline:       0x{yaw_trampoline_addr:08x}")
@@ -187,28 +195,36 @@ def main():
   print(f"Pitch value scratch:  0x{pitch_value_addr:08x}")
   print(f"Yaw value scratch:    0x{yaw_value_addr:08x}")
   print(f"PI constant scratch:  0x{pi_scratch_addr:08x}")
-  print(f"Render yaw offset:    0x{render_yaw_offset_addr:08x} (0.0 by default; install_asia_position.py may update this)")
+  print(f"Render yaw offset:    0x{render_yaw_offset_addr:08x} (0.0 by default)")
+  print(f"Pitch tail:           0x{pitch_tail_addr:08x}")
+  print(f"Yaw tail:             0x{yaw_tail_addr:08x}")
+  print(f"Roll tail:            0x{roll_tail_addr:08x}")
 
-  pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR)
-  heading_offset_addr = render_yaw_offset_addr + 4
-  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr)
-  roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR)
+  pitch_tail_code = build_original_tail(ks, pitch_tail_addr, orig_pitch, PITCH_RETURN_ADDR)
+  yaw_tail_code = build_original_tail(ks, yaw_tail_addr, orig_yaw, YAW_RETURN_ADDR)
+  roll_tail_code = build_original_tail(ks, roll_tail_addr, orig_roll, ROLL_RETURN_ADDR)
+
+  # if read_memory(sock, tails_base, 3 * TAIL_SIZE) != bytes(3 * TAIL_SIZE):
+  #   raise RuntimeError(f"Tail area at 0x{tails_base:x} is not zero. Load a savestate first.")
+
+  pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR, pitch_tail_addr)
+  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, yaw_tail_addr)
+  roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR, roll_tail_addr)
 
   pitch_hook_bytes = build_hook_jmp(ks, PITCH_HOOK_ADDR, PITCH_HOOK_LEN, pitch_trampoline_addr)
   yaw_hook_bytes = build_hook_jmp(ks, YAW_HOOK_ADDR, YAW_HOOK_LEN, yaw_trampoline_addr)
   roll_hook_bytes = build_hook_jmp(ks, ROLL_HOOK_ADDR, ROLL_HOOK_LEN, roll_trampoline_addr)
 
-  sock = connect()
-
-  orig_pitch = read_memory(sock, PITCH_HOOK_ADDR, PITCH_HOOK_LEN)
-  orig_yaw = read_memory(sock, YAW_HOOK_ADDR, YAW_HOOK_LEN)
-  orig_roll = read_memory(sock, ROLL_HOOK_ADDR, ROLL_HOOK_LEN)
   print(f"\nOriginal pitch hook bytes: {orig_pitch.hex()} (save for manual revert)")
   print(f"Original yaw hook bytes:   {orig_yaw.hex()} (save for manual revert)")
   print(f"Original roll hook bytes:  {orig_roll.hex()} (save for manual revert)")
 
   print()
   try:
+    verified_write(sock, pitch_tail_addr, pitch_tail_code, "pitch tail")
+    verified_write(sock, yaw_tail_addr, yaw_tail_code, "yaw tail")
+    verified_write(sock, roll_tail_addr, roll_tail_code, "roll tail")
+
     verified_write(sock, pitch_trampoline_addr, pitch_trampoline_code, "pitch trampoline")
     verified_write(sock, yaw_trampoline_addr, yaw_trampoline_code, "yaw trampoline")
     verified_write(sock, roll_trampoline_addr, roll_trampoline_code, "roll trampoline")
@@ -219,7 +235,6 @@ def main():
     verified_write(sock, yaw_value_addr, current_yaw, "yaw value scratch (init)")
 
     verified_write(sock, heading_offset_addr, struct.pack("<f", 0.0), "heading offset (init)")
-
 
     pi_bytes = struct.pack("<f", 3.14159265)
     verified_write(sock, pi_scratch_addr, pi_bytes, "pi constant scratch (init)")

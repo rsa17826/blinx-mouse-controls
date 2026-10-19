@@ -196,9 +196,9 @@ def main():
     ly = -fwd * 32767
 
     # Normalize diagonal movement vector
-    if lx != 0 and ly != 0:
-      lx = int(lx * 0.7071)
-      ly = int(ly * 0.7071)
+    # if lx != 0 and ly != 0:
+    #   lx = int(lx * 0.7071)
+    #   ly = int(ly * 0.7071)
 
     gamepad.write(e.EV_ABS, e.ABS_X, lx)
     gamepad.write(e.EV_ABS, e.ABS_Y, ly)
