@@ -58,7 +58,7 @@ ROLL_RETURN_ADDR = 0x0002319F
 
 TRAMPOLINE_BUDGET = 64
 
-CUTSCENE_FLAG_ADDR = 0x9dd79c
+CUTSCENE_FLAG_ADDR = 0x9DD79C
 FMUL_ABS_PREFIX = bytes.fromhex("d80d")
 TAIL_SIZE = 16
 
@@ -119,6 +119,7 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
         pop edx
         pop eax
         jmp 0x{return_addr:x}
+
     """
   encoded = asm(ks, code, cave_addr)
   if len(encoded) > TRAMPOLINE_BUDGET:
@@ -127,9 +128,8 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
   return encoded
 
 
-def build_roll_trampoline(ks, cave_addr, return_addr, tail_addr):
+def build_roll_trampoline(ks, cave_addr, return_addr):
   code = f"""
-        {cutscene_check(tail_addr)}
         fstp st(0)
         fldz
         jmp 0x{return_addr:x}
@@ -183,10 +183,8 @@ def main():
   render_yaw_offset_addr = pi_scratch_addr + 4
 
   heading_offset_addr = render_yaw_offset_addr + 4
-  tails_base = heading_offset_addr + 4 + 4
-  pitch_tail_addr = tails_base
-  yaw_tail_addr = tails_base + TAIL_SIZE
-  roll_tail_addr = tails_base + 2 * TAIL_SIZE
+  pitch_tail_addr = pitch_trampoline_addr + 40
+  yaw_tail_addr = roll_trampoline_addr + 16
 
   print(f"Cave base:            0x{cave_addr:08x}")
   print(f"Pitch trampoline:     0x{pitch_trampoline_addr:08x}")
@@ -198,18 +196,18 @@ def main():
   print(f"Render yaw offset:    0x{render_yaw_offset_addr:08x} (0.0 by default)")
   print(f"Pitch tail:           0x{pitch_tail_addr:08x}")
   print(f"Yaw tail:             0x{yaw_tail_addr:08x}")
-  print(f"Roll tail:            0x{roll_tail_addr:08x}")
 
   pitch_tail_code = build_original_tail(ks, pitch_tail_addr, orig_pitch, PITCH_RETURN_ADDR)
   yaw_tail_code = build_original_tail(ks, yaw_tail_addr, orig_yaw, YAW_RETURN_ADDR)
-  roll_tail_code = build_original_tail(ks, roll_tail_addr, orig_roll, ROLL_RETURN_ADDR)
 
-  # if read_memory(sock, tails_base, 3 * TAIL_SIZE) != bytes(3 * TAIL_SIZE):
-  #   raise RuntimeError(f"Tail area at 0x{tails_base:x} is not zero. Load a savestate first.")
+  # for addr in (pitch_tail_addr, yaw_tail_addr):
+  #   if read_memory(sock, addr, TAIL_SIZE) != bytes(TAIL_SIZE):
+  #     raise RuntimeError(f"Tail area at 0x{addr:x} is not zero. Load a savestate first.")
+
 
   pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR, pitch_tail_addr)
   yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, yaw_tail_addr)
-  roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR, roll_tail_addr)
+  roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR)
 
   pitch_hook_bytes = build_hook_jmp(ks, PITCH_HOOK_ADDR, PITCH_HOOK_LEN, pitch_trampoline_addr)
   yaw_hook_bytes = build_hook_jmp(ks, YAW_HOOK_ADDR, YAW_HOOK_LEN, yaw_trampoline_addr)
@@ -223,7 +221,6 @@ def main():
   try:
     verified_write(sock, pitch_tail_addr, pitch_tail_code, "pitch tail")
     verified_write(sock, yaw_tail_addr, yaw_tail_code, "yaw tail")
-    verified_write(sock, roll_tail_addr, roll_tail_code, "roll tail")
 
     verified_write(sock, pitch_trampoline_addr, pitch_trampoline_code, "pitch trampoline")
     verified_write(sock, yaw_trampoline_addr, yaw_trampoline_code, "yaw trampoline")
