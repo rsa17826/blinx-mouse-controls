@@ -224,7 +224,7 @@ def main():
       while not stop_event.is_set():
         ev = conn.read_event()
         block = False
-        if ev["type"] == EV_KEY and ev["code"] == 25 and ev["value"] == 1:
+        if ev["type"] == EV_KEY and ev["code"] == 109 and ev["value"] == 1:
           paused = not paused
           conn.block_input(ev["seq"], True)
           continue
