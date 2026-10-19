@@ -200,9 +200,9 @@ def main():
   pitch_tail_code = build_original_tail(ks, pitch_tail_addr, orig_pitch, PITCH_RETURN_ADDR)
   yaw_tail_code = build_original_tail(ks, yaw_tail_addr, orig_yaw, YAW_RETURN_ADDR)
 
-  # for addr in (pitch_tail_addr, yaw_tail_addr):
-  #   if read_memory(sock, addr, TAIL_SIZE) != bytes(TAIL_SIZE):
-  #     raise RuntimeError(f"Tail area at 0x{addr:x} is not zero. Load a savestate first.")
+  for addr in (pitch_tail_addr, yaw_tail_addr):
+    if read_memory(sock, addr, TAIL_SIZE) != bytes(TAIL_SIZE):
+      raise RuntimeError(f"Tail area at 0x{addr:x} is not zero. Load a savestate first.")
 
 
   pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR, pitch_tail_addr)

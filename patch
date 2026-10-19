@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+python disable_autoaim.py &&
+  python install_zero_stick_angle.py 0x1d7c00 &&
+  python fix_wrong_walk_dir.py 0x1d7b00 &&
+  python install_asia_mouselook.py 0x00141ee5 &&
+  python install_asia_position.py 0x001d797c 0x00141fa9 -18 -25
