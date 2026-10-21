@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/env python
 from gdb_rsp import cmd_continue, connect, write_memory
 
 sock = connect()
