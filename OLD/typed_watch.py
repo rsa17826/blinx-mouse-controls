@@ -20,87 +20,90 @@ Usage:
 
 Example:
     python3 typed_watch.py 9dd652 9dd656 9dd65a
+
 """
+
 import struct
 import sys
 import time
 
 sys.path.insert(0, "/home/claude")
-from gdb_rsp import connect, read_memory, cmd_continue  # noqa: E402
+from gdb_rsp import connect, read_memory, cmd_continue # noqa: E402
 
 
 def read_typed(sock, addr):
-    raw = read_memory(sock, addr, 4)
-    return {
-        "u8": raw[0],
-        "i8": struct.unpack("<b", raw[0:1])[0],
-        "u16": struct.unpack("<H", raw[0:2])[0],
-        "i16": struct.unpack("<h", raw[0:2])[0],
-        "u32": struct.unpack("<I", raw)[0],
-        "i32": struct.unpack("<i", raw)[0],
-        "f32": struct.unpack("<f", raw)[0],
-        "raw_hex": raw.hex(),
-    }
+  raw = read_memory(sock, addr, 4)
+  return {
+    "u8": raw[0],
+    "i8": struct.unpack("<b", raw[0:1])[0],
+    "u16": struct.unpack("<H", raw[0:2])[0],
+    "i16": struct.unpack("<h", raw[0:2])[0],
+    "u32": struct.unpack("<I", raw)[0],
+    "i32": struct.unpack("<i", raw)[0],
+    "f32": struct.unpack("<f", raw)[0],
+    "raw_hex": raw.hex(),
+  }
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
+  if len(sys.argv) < 2:
+    print(__doc__)
+    sys.exit(1)
 
-    addrs = [int(a, 16) for a in sys.argv[1:]]
+  addrs = [int(a, 16) for a in sys.argv[1:]]
 
-    print(f"Polling {len(addrs)} address(es): "
-          + ", ".join(f"0x{a:08x}" for a in addrs))
-    print("Ctrl-C to stop.\n")
+  print(f"Polling {len(addrs)} address(es): " + ", ".join(f"0x{a:08x}" for a in addrs))
+  print("Ctrl-C to stop.\n")
 
-    try:
-        while True:
-            try:
-                sock = connect()
-            except (OSError, RuntimeError) as e:
-                print(f"connect failed ({e}), retrying...")
-                time.sleep(0.5)
-                continue
+  try:
+    while True:
+      try:
+        sock = connect()
 
-            line_parts = []
-            read_error = False
-            for addr in addrs:
-                try:
-                    vals = read_typed(sock, addr)
-                except (RuntimeError, ValueError) as e:
-                    # Bad/partial packet on the wire - skip this whole
-                    # poll cycle and reconnect fresh rather than trying
-                    # to recover mid-stream (the socket framing may be
-                    # desynced at this point).
-                    line_parts = [f"READ FAILED this cycle ({e}) - reconnecting"]
-                    read_error = True
-                    break
-                b = bytes.fromhex(vals["raw_hex"])
-                lo16 = struct.unpack("<H", b[0:2])[0]
-                hi16 = struct.unpack("<H", b[2:4])[0]
-                line_parts.append(
-                    f"0x{addr:08x} raw={vals['raw_hex']} "
-                    f"lo16={lo16:5d} hi16={hi16:5d} "
-                    f"u16={vals['u16']:5d} i16={vals['i16']:6d} "
-                    f"i32={vals['i32']:11d} "
-                    f"f32={vals['f32']: .6e}"
-                )
+      except (OSError, RuntimeError) as e:
+        print(f"connect failed ({e}), retrying...")
+        time.sleep(0.5)
+        continue
 
-            try:
-                cmd_continue(sock)
-            except (OSError, RuntimeError):
-                pass  # socket already bad, next loop iteration reconnects
-            sock.close()
+      line_parts = []
+      read_error = False
+      for addr in addrs:
+        try:
+          vals = read_typed(sock, addr)
 
-            print(" | ".join(line_parts))
-            if read_error:
-                time.sleep(0.2)
-            else:
-                time.sleep(0.3)
-    except KeyboardInterrupt:
-        print("\nStopped.")
+        except (RuntimeError, ValueError) as e:
+          # Bad/partial packet on the wire - skip this whole
+          # poll cycle and reconnect fresh rather than trying
+          # to recover mid-stream (the socket framing may be
+          # desynced at this point).
+          line_parts = [f"READ FAILED this cycle ({e}) - reconnecting"]
+          read_error = True
+          break
+
+        b = bytes.fromhex(vals["raw_hex"])
+        lo16 = struct.unpack("<H", b[0:2])[0]
+        hi16 = struct.unpack("<H", b[2:4])[0]
+        line_parts.append(f"0x{addr:08x} raw={vals['raw_hex']} lo16={lo16:5d} hi16={hi16:5d} u16={vals['u16']:5d} i16={vals['i16']:6d} i32={vals['i32']:11d} f32={vals['f32']: .6e}")
+
+      try:
+        cmd_continue(sock)
+
+      except (OSError, RuntimeError):
+        pass # socket already bad, next loop iteration reconnects
+
+      sock.close()
+
+      print(" | ".join(line_parts))
+      if read_error:
+        time.sleep(0.2)
+      else:
+        time.sleep(0.3)
+
+
+
+  except KeyboardInterrupt:
+    print("\nStopped.")
 
 
 if __name__ == "__main__":
-    main()
+  main()

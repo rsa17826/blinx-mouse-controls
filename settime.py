@@ -124,9 +124,6 @@ if __name__ == "__main__":
   else:
     struct_key = "both"
 
-    # print(__doc__)
-    # print("ERROR: must specify --il or --ool", file=sys.stderr)
-    # sys.exit(1)
 
   replace = "--replace" in argv
   if replace:
