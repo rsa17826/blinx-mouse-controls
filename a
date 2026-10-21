@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+while :; do
+  a=$(python settrash.py "${a:-200}")
+  echo -- $(( a - 1 ))
+  read -r _
+done
