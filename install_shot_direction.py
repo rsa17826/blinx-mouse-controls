@@ -12,6 +12,7 @@ Usage:
 The cave must be 128 zero bytes. Requires install_asia_mouselook.py installed
 (pitch/yaw scratch floats). Load a savestate with original bytes first.
 """
+
 import sys
 
 sys.path.insert(0, ".")
@@ -39,6 +40,7 @@ def verified_write(sock, addr, data, label):
   readback = read_memory(sock, addr, len(data))
   if readback != data:
     raise RuntimeError(f"Write verification FAILED for {label}: wrote {data.hex()}, read {readback.hex()}")
+
   print(f"  verified: {label} at 0x{addr:08x}")
 
 
@@ -67,20 +69,18 @@ def main():
         call 0x{CALLEE:x}
         cmp esi, dword ptr [0x{PLAYER_OBJ_PTR:x}]
         jne finish
-        fld dword ptr [0x{pitch_addr:x}]
-        fsincos
-        fstp dword ptr [0x{cp_slot:x}]
-        {negate}
+
+        fldz
         fstp dword ptr [esi + 0x{DIR_Y:x}]
+
         fld dword ptr [0x{yaw_addr:x}]
         fsincos
-        fmul dword ptr [0x{cp_slot:x}]
         fstp dword ptr [esi + 0x{DIR_Z:x}]
-        fmul dword ptr [0x{cp_slot:x}]
         fstp dword ptr [esi + 0x{DIR_X:x}]
     finish:
         push dword ptr [0x{ret_slot:x}]
         ret
+
     """,
     code_addr,
   )
@@ -96,12 +96,16 @@ def main():
     current = read_memory(sock, HOOK_ADDR, HOOK_LEN)
     if current != ORIGINAL:
       raise RuntimeError(f"Unexpected bytes at 0x{HOOK_ADDR:x}: {current.hex()} (already patched? load the savestate)")
+
     if read_memory(sock, cave, CAVE_SIZE) != bytes(CAVE_SIZE):
       raise RuntimeError(f"Cave at 0x{cave:x} is not {CAVE_SIZE} zero bytes")
+
     verified_write(sock, code_addr, stub, "stub")
     verified_write(sock, HOOK_ADDR, hook, "hook")
+
   finally:
     cmd_continue(sock)
+
   print("Shot direction override installed.")
 
 
