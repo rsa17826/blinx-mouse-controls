@@ -62,6 +62,32 @@ def main():
   negate = "fchs" if pitch_sign == -1 else ""
 
   ks = Ks(KS_ARCH_X86, KS_MODE_32)
+  # @noregex
+  # NOTE use this to allow y direction changes
+  # stub = asm(
+  #   ks,
+  #   """
+  #       pop dword ptr [0x{ret_slot:x}]
+  #       call 0x{CALLEE:x}
+  #       cmp esi, dword ptr [0x{PLAYER_OBJ_PTR:x}]
+  #       jne finish
+  #       fld dword ptr [0x{pitch_addr:x}]
+  #       fsincos
+  #       fstp dword ptr [0x{cp_slot:x}]
+  #       {negate}
+  #       fstp dword ptr [esi + 0x{DIR_Y:x}]
+  #       fld dword ptr [0x{yaw_addr:x}]
+  #       fsincos
+  #       fmul dword ptr [0x{cp_slot:x}]
+  #       fstp dword ptr [esi + 0x{DIR_Z:x}]
+  #       fmul dword ptr [0x{cp_slot:x}]
+  #       fstp dword ptr [esi + 0x{DIR_X:x}]
+  #   finish:
+  #       push dword ptr [0x{ret_slot:x}]
+  #       ret
+  #   """,
+  #   code_addr,
+  # )
   stub = asm(
     ks,
     f"""
