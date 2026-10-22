@@ -1,41 +1,25 @@
-#!/usr/bin/env python3
-"""stride_diff.py <resultsA.txt> <resultsB.txt>
-Prints stride_scan.py hits whose (stride, phys) appear in both files."""
-
-import re
 import sys
 
-HDR = re.compile(r"^stride (0x[0-9a-f]+): phys (0x[0-9a-f]+)")
+sys.path.insert(0, ".")
+from gdb_rsp import connect, set_watchpoint, remove_watchpoint, send_packet, wait_for_stop, read_all_registers, parse_registers, read_memory, cmd_continue
+
+ADDR = 0x4EAB80
+s = connect()
+set_watchpoint(s, ADDR, 4, kind=b"2")
+try:
+  for i in range(6):
+    send_packet(s, b"c")
+    wait_for_stop(s)
+    regs = parse_registers(read_all_registers(s))
+    ret = int.from_bytes(read_memory(s, regs["esp"], 4), "little")
+    op = read_memory(s, ret - 5, 1)[0]
+    print(f"{i}: eip=0x{regs['eip']:08x} ret=0x{ret:08x} byte@ret-5=0x{op:02x} (0xe8 = call)")
+    if i == 0:
+      print("code around ret:", read_memory(s, ret - 0x60, 0xA0).hex())
 
 
-def parse(path):
-  hits = {}
-  cur = None
-  with open(path) as f:
-    for line in f:
-      m = HDR.match(line)
-      if m:
-        cur = (m.group(1), m.group(2))
-        hits[cur] = []
-      elif cur is not None and line.startswith("    "):
-        hits[cur].append(line.rstrip())
 
-  if not hits:
-    raise RuntimeError(f"No hits found in {path} - is it stride_scan.py output?")
-
-  return hits
-
-
-a = parse(sys.argv[1])
-b = parse(sys.argv[2])
-both = sorted(set(a) & set(b), key=lambda k: int(k[1], 16))
-print(f"{len(a)} hits in A, {len(b)} in B, {len(both)} in both")
-
-for key in both:
-  stride, phys = key
-  print(f"stride {stride}: phys {phys}")
-  for line in a[key]:
-    print(f"  A{line}")
-
-  for line in b[key]:
-    print(f"  B{line}")
+finally:
+  remove_watchpoint(s, ADDR, 4, kind=b"2")
+  cmd_continue(s)
+  s.close()
