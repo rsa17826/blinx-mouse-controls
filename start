@@ -4,8 +4,8 @@ if test -f "$PIDFILE" && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   echo "Virtual Xbox controller is already running."
 else
   echo "Starting virtual Xbox controller..."
-  setsid python plug_controller.py >/dev/null 2>&1 &
+  setsid python setup-plug_controller.py >/dev/null 2>&1 &
   disown
 fi
 
-python mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
+python start-mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
