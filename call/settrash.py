@@ -1,8 +1,12 @@
 #!/usr/bin/env python
+import sys, os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
 from gdb_rsp import cmd_continue, connect, write_memory
 
 sock = connect()
 import sys
+
 # thing = 0x54.to_bytes(1, byteorder="big", signed=False)
 # thing = 0x4F.to_bytes(1, byteorder="big", signed=False)
 thing = bytes.fromhex(sys.argv[1])

@@ -30,9 +30,10 @@ Usage:
 """
 
 import struct
-import sys
+import sys, os
 
 sys.path.insert(0, ".")
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
 from gdb_rsp import connect, read_memory, write_memory, cmd_continue # noqa: E402
 
 try:

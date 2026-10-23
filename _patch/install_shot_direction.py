@@ -13,9 +13,10 @@ The cave must be 128 zero bytes. Requires install_asia_mouselook.py installed
 (pitch/yaw scratch floats). Load a savestate with original bytes first.
 """
 
-import sys
+import sys, os
 
 sys.path.insert(0, ".")
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
 from gdb_rsp import connect, read_memory, write_memory, cmd_continue
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32
 

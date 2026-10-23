@@ -8,4 +8,4 @@ else
   disown
 fi
 
-python start-mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python find_ram_base.py 0x00141fa5 2>/dev/tty)"
+python start-mouse_hook_fast.py 0x00141fa5 0x00141fa9 "$(python ./lib/find_ram_base.py 0x00141fa5 2>/dev/tty)"

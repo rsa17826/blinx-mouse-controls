@@ -30,8 +30,8 @@ Requires xemu running with the gdbstub enabled (-s) and gdb_rsp.py
 in the same directory.
 """
 
-import sys
-
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
 import gdb_rsp
 
 TYPE_MAP = {

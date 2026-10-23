@@ -385,9 +385,6 @@ def verify_translation(physical_addr, expected_byte, base_offset):
     print("MISMATCH - try a different base_offset.")
 
 
-import sys
-
-
 def scan_for_all(sock, signature: bytes, start, end, chunk_size=0x1000):
   addr = start
   overlap_len = len(signature) - 1

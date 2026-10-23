@@ -22,6 +22,7 @@ import threading
 from evdev import UInput, AbsInfo, ecodes as e
 
 sys.path.insert(0, ".")
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), './lib')))
 from iman_client import FilterConnection, EV_REL, EV_KEY # noqa: E402
 
 PHYS_OFFSET = 0xAF000 # virtual -> physical
