@@ -228,7 +228,7 @@ def wait_for_stop(sock):
   return payload
 
 
-IGNORE_RANGES = [(0xd5000, 0xda000), (0xdd000, 0xde000), (0x141000, 0x142000), (0x23000, 0x24000), (0x000da1f0, 0x000da1f2)]
+IGNORE_RANGES = [(0xD5000, 0xDA000), (0xDD000, 0xDE000), (0x141000, 0x142000), (0x23000, 0x24000), (0x000DA1F0, 0x000DA1F2)]
 
 
 def is_ignored(eip):
@@ -388,6 +388,43 @@ def verify_translation(physical_addr, expected_byte, base_offset):
 import sys
 
 
+def scan_for_all(sock, signature: bytes, start, end, chunk_size=0x1000):
+  addr = start
+  overlap_len = len(signature) - 1
+  prev_tail = b""
+  found = []
+
+  while addr < end:
+    try:
+      chunk = read_memory(sock, addr, chunk_size)
+
+    except RuntimeError:
+      addr += chunk_size
+      prev_tail = b""
+      continue
+
+    haystack = prev_tail + chunk
+    idx = haystack.find(signature)
+    while idx != -1:
+      found.append(addr - len(prev_tail) + idx)
+      idx = haystack.find(signature, idx + 1)
+
+    prev_tail = chunk[-overlap_len:] if overlap_len else b""
+    addr += chunk_size
+
+  return found
+
+
+def cmd_find(hex_bytes, start, end):
+  signature = bytes.fromhex(hex_bytes)
+  sock = connect()
+  chunk_size = query_max_packet_size(sock)
+  for a in scan_for_all(sock, signature, start, end, chunk_size=chunk_size):
+    print(f"0x{a:08x}")
+
+  cmd_continue(sock)
+
+
 def scan_for_signature(sock, signature: bytes, start, end, chunk_size=0x1000):
   """Scan virtual address range [start, end) for `signature`, reading
 
@@ -537,6 +574,8 @@ if __name__ == "__main__":
     start = int(sys.argv[5], 16)
     end = int(sys.argv[6], 16)
     cmd_scan(snapshot_path, physical_addr, sig_len, start, end)
+  elif mode == "find":
+    cmd_find(sys.argv[2], int(sys.argv[3], 16), int(sys.argv[4], 16))
   elif mode == "watch":
     addr = int(sys.argv[2], 16)
     length = int(sys.argv[3])
