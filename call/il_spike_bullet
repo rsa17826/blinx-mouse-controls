@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-./call/settime.py --replace ff 3 pause 3 rec 3 rew 1 && ./call/settrash.py 54 && ./lib/gdb_rsp.py write 0xf0a9470c 09
+./call/settime.py --replace ff 4 pause 1 rec 1 rew 4 && ./call/settrash.py 54 && ./lib/gdb_rsp.py write 0xf0a9470c 09

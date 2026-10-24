@@ -31,7 +31,7 @@ import struct
 import sys, os
 
 sys.path.insert(0, ".")
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
 from gdb_rsp import connect, read_memory, write_memory, cmd_continue # noqa: E402
 
 try:
@@ -57,7 +57,12 @@ ROLL_HOOK_ADDR = 0x00023199
 ROLL_HOOK_LEN = 6
 ROLL_RETURN_ADDR = 0x0002319F
 
-TRAMPOLINE_BUDGET = 64
+TRAMPOLINE_BUDGET = 96 # yaw trampoline no longer fits in 64
+
+SPAWN_HOOK_ADDR = 0x000D4163
+SPAWN_HOOK_LEN = 6
+SPAWN_RETURN_ADDR = 0x000D4169
+SPAWN_ORIGINAL = bytes.fromhex("8b868c000000") # mov eax, [esi+0x8c]
 
 CUTSCENE_FLAG_ADDR = 0x9DD79C
 FMUL_ABS_PREFIX = bytes.fromhex("d80d")
@@ -72,8 +77,8 @@ def cutscene_check(tail_addr):
 
 
 def build_original_tail(ks, tail_addr, original, return_addr):
-  # if original[:2] != FMUL_ABS_PREFIX:
-  #   raise RuntimeError(f"Original bytes at hook are not fmul [abs32]: {original.hex()}")
+  if original[:2] != FMUL_ABS_PREFIX:
+    raise RuntimeError(f"Original bytes at hook are not fmul [abs32]: {original.hex()}")
 
   return original + asm(ks, f"jmp 0x{return_addr:x}", tail_addr + len(original))
 
@@ -100,13 +105,14 @@ def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
   return encoded
 
 
-def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, tail_addr):
+def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr):
   code = f"""
-        {cutscene_check(tail_addr)}
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
         push eax
         push edx
+        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
+        jne skip_heading
         mov edx, 0x{PLAYER_PTR_ADDR:x}
         mov eax, dword ptr [edx]
         test eax, eax
@@ -185,7 +191,6 @@ def main():
 
   heading_offset_addr = render_yaw_offset_addr + 4
   pitch_tail_addr = pitch_trampoline_addr + 40
-  yaw_tail_addr = roll_trampoline_addr + 16
 
   print(f"Cave base:            0x{cave_addr:08x}")
   print(f"Pitch trampoline:     0x{pitch_trampoline_addr:08x}")
@@ -196,18 +201,16 @@ def main():
   print(f"PI constant scratch:  0x{pi_scratch_addr:08x}")
   print(f"Render yaw offset:    0x{render_yaw_offset_addr:08x} (0.0 by default)")
   print(f"Pitch tail:           0x{pitch_tail_addr:08x}")
-  print(f"Yaw tail:             0x{yaw_tail_addr:08x}")
 
   pitch_tail_code = build_original_tail(ks, pitch_tail_addr, orig_pitch, PITCH_RETURN_ADDR)
-  yaw_tail_code = build_original_tail(ks, yaw_tail_addr, orig_yaw, YAW_RETURN_ADDR)
 
-  for addr in (pitch_tail_addr, yaw_tail_addr):
+  for addr in (pitch_tail_addr,):
     if read_memory(sock, addr, TAIL_SIZE) != bytes(TAIL_SIZE):
       raise RuntimeError(f"Tail area at 0x{addr:x} is not zero. Load a savestate first.")
 
 
   pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR, pitch_tail_addr)
-  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, yaw_tail_addr)
+  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr)
   roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR)
 
   pitch_hook_bytes = build_hook_jmp(ks, PITCH_HOOK_ADDR, PITCH_HOOK_LEN, pitch_trampoline_addr)
@@ -221,7 +224,6 @@ def main():
   print()
   try:
     verified_write(sock, pitch_tail_addr, pitch_tail_code, "pitch tail")
-    verified_write(sock, yaw_tail_addr, yaw_tail_code, "yaw tail")
 
     verified_write(sock, pitch_trampoline_addr, pitch_trampoline_code, "pitch trampoline")
     verified_write(sock, yaw_trampoline_addr, yaw_trampoline_code, "yaw trampoline")
