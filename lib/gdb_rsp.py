@@ -228,7 +228,7 @@ def wait_for_stop(sock):
   return payload
 
 
-IGNORE_RANGES = [(0xD5000, 0xDA000), (0xDD000, 0xDE000), (0x141000, 0x142000), (0x23000, 0x24000), (0x000DA1F0, 0x000DA1F2)]
+IGNORE_RANGES = []
 
 
 def is_ignored(eip):

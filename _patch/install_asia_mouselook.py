@@ -57,7 +57,9 @@ ROLL_HOOK_ADDR = 0x00023199
 ROLL_HOOK_LEN = 6
 ROLL_RETURN_ADDR = 0x0002319F
 
-TRAMPOLINE_BUDGET = 96 # yaw trampoline no longer fits in 64
+PITCH_SLOT = 64
+YAW_SLOT = 88
+ROLL_SLOT = 16 # roll code is 9 bytes
 
 SPAWN_HOOK_ADDR = 0x000D4163
 SPAWN_HOOK_LEN = 6
@@ -99,13 +101,13 @@ def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
         jmp 0x{return_addr:x}
     """
   encoded = asm(ks, code, cave_addr)
-  if len(encoded) > TRAMPOLINE_BUDGET:
+  if len(encoded) > PITCH_SLOT:
     raise RuntimeError(f"Pitch trampoline exceeds budget ({len(encoded)} bytes).")
 
   return encoded
 
 
-def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr):
+def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, last_written_addr, game_heading_addr):
   code = f"""
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
@@ -117,10 +119,18 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
         mov eax, dword ptr [edx]
         test eax, eax
         jz skip_heading
+        mov edx, dword ptr [eax + 0x{HEADING_OFFSET:x}]
+        cmp edx, dword ptr [0x{last_written_addr:x}]
+        je no_capture
+        mov dword ptr [0x{game_heading_addr:x}], edx
+    no_capture:
         fld st(0)
         fadd dword ptr [0x{pi_scratch:x}]
         fadd dword ptr [0x{heading_offset_addr:x}]
         fstp dword ptr [eax + 0x{HEADING_OFFSET:x}]
+        mov edx, dword ptr [eax + 0x{HEADING_OFFSET:x}]
+        mov dword ptr [0x{last_written_addr:x}], edx
+
     skip_heading:
         fadd dword ptr [0x{render_yaw_offset_addr:x}]
         pop edx
@@ -129,8 +139,27 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
 
     """
   encoded = asm(ks, code, cave_addr)
-  if len(encoded) > TRAMPOLINE_BUDGET:
+  if len(encoded) > YAW_SLOT:
     raise RuntimeError(f"Yaw trampoline exceeds budget ({len(encoded)} bytes).")
+
+  return encoded
+
+
+def build_spawn_trampoline(ks, cave_addr, game_heading_addr):
+  code = f"""
+        pushfd
+        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
+        mov eax, dword ptr [esi + 0x8c]
+        je done
+        mov eax, dword ptr [0x{game_heading_addr:x}]
+    done:
+        popfd
+        jmp 0x{SPAWN_RETURN_ADDR:x}
+
+    """
+  encoded = asm(ks, code, cave_addr)
+  if len(encoded) > 40:
+    raise RuntimeError(f"Spawn trampoline exceeds 40 bytes ({len(encoded)}).")
 
   return encoded
 
@@ -142,7 +171,7 @@ def build_roll_trampoline(ks, cave_addr, return_addr):
         jmp 0x{return_addr:x}
     """
   encoded = asm(ks, code, cave_addr)
-  if len(encoded) > TRAMPOLINE_BUDGET:
+  if len(encoded) > ROLL_SLOT:
     raise RuntimeError(f"Roll trampoline exceeds budget ({len(encoded)} bytes).")
 
   return encoded
@@ -173,6 +202,11 @@ def main():
     sys.exit(1)
 
   cave_addr = int(sys.argv[1], 16)
+  pitch_trampoline_addr = cave_addr
+  yaw_trampoline_addr = cave_addr + PITCH_SLOT # +64 .. +152
+  roll_trampoline_addr = yaw_trampoline_addr + YAW_SLOT # +152 .. +168
+  spawn_trampoline_addr = roll_trampoline_addr + ROLL_SLOT # +168 .. +195
+  pitch_value_addr = cave_addr + 208 # pinned, same as before
   ks = Ks(KS_ARCH_X86, KS_MODE_32)
 
   sock = connect()
@@ -182,15 +216,26 @@ def main():
   orig_roll = read_memory(sock, ROLL_HOOK_ADDR, ROLL_HOOK_LEN)
 
   pitch_trampoline_addr = cave_addr
-  yaw_trampoline_addr = cave_addr + TRAMPOLINE_BUDGET
-  roll_trampoline_addr = cave_addr + 2 * TRAMPOLINE_BUDGET
-  pitch_value_addr = cave_addr + 3 * TRAMPOLINE_BUDGET
   yaw_value_addr = pitch_value_addr + 4
   pi_scratch_addr = yaw_value_addr + 4
   render_yaw_offset_addr = pi_scratch_addr + 4
 
   heading_offset_addr = render_yaw_offset_addr + 4
   pitch_tail_addr = pitch_trampoline_addr + 40
+
+  last_written_addr = heading_offset_addr + 4
+  game_heading_addr = last_written_addr + 4
+  total_size = (pitch_value_addr + 28) - cave_addr
+  if read_memory(sock, cave_addr, total_size) != bytes(total_size):
+    raise RuntimeError(f"Cave 0x{cave_addr:x}..+0x{total_size:x} is not all zero. Load a savestate or pick another cave.")
+
+  orig_spawn = read_memory(sock, SPAWN_HOOK_ADDR, SPAWN_HOOK_LEN)
+  if orig_spawn != SPAWN_ORIGINAL:
+    raise RuntimeError(f"Unexpected bytes at spawn hook: {orig_spawn.hex()}")
+
+  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, last_written_addr, game_heading_addr)
+  spawn_trampoline_code = build_spawn_trampoline(ks, spawn_trampoline_addr, game_heading_addr)
+  spawn_hook_bytes = build_hook_jmp(ks, SPAWN_HOOK_ADDR, SPAWN_HOOK_LEN, spawn_trampoline_addr)
 
   print(f"Cave base:            0x{cave_addr:08x}")
   print(f"Pitch trampoline:     0x{pitch_trampoline_addr:08x}")
@@ -210,7 +255,7 @@ def main():
 
 
   pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR, pitch_tail_addr)
-  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr)
+  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, last_written_addr, game_heading_addr)
   roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR)
 
   pitch_hook_bytes = build_hook_jmp(ks, PITCH_HOOK_ADDR, PITCH_HOOK_LEN, pitch_trampoline_addr)
@@ -223,6 +268,11 @@ def main():
 
   print()
   try:
+    verified_write(sock, spawn_trampoline_addr, spawn_trampoline_code, "spawn trampoline")
+
+    verified_write(sock, game_heading_addr, bytes(4), "game heading scratch (init)")
+    verified_write(sock, last_written_addr, bytes(4), "last written heading (init)")
+
     verified_write(sock, pitch_tail_addr, pitch_tail_code, "pitch tail")
 
     verified_write(sock, pitch_trampoline_addr, pitch_trampoline_code, "pitch trampoline")
@@ -243,6 +293,7 @@ def main():
     verified_write(sock, PITCH_HOOK_ADDR, pitch_hook_bytes, "pitch hook jmp")
     verified_write(sock, YAW_HOOK_ADDR, yaw_hook_bytes, "yaw hook jmp")
     verified_write(sock, ROLL_HOOK_ADDR, roll_hook_bytes, "roll hook jmp")
+    verified_write(sock, SPAWN_HOOK_ADDR, spawn_hook_bytes, "spawn hook jmp")
 
   except RuntimeError as e:
     print(f"\n{e}")

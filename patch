@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
+PITCH=0x00141fb5
+YAW=0x00141fb9
 ./_patch/disable_autoaim.py &&
   ./_patch/install_zero_stick_angle.py 0x1d7c00 &&
   ./_patch/fix_wrong_walk_dir.py 0x1d7b00 &&
   ./_patch/install_asia_mouselook.py 0x00141ee5 &&
   # don't change shot direction while ff active
-  ./_patch/install_shot_direction.py 0x1d7e00 0x00141fa5 0x00141fa9 1 &&
-  ./_patch/install_asia_position.py 0x001d797c 0x00141fa9 -18 -25
+  ./_patch/install_shot_direction.py 0x1d7e00 $PITCH $YAW 1 &&
+  ./_patch/install_asia_position.py 0x001d797c $YAW -18 -25
