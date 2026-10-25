@@ -95,7 +95,6 @@ def asm(ks, code, address):
 
 def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
   code = f"""
-        {cutscene_check(tail_addr)}
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
         jmp 0x{return_addr:x}
@@ -113,8 +112,6 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
         fld dword ptr [0x{value_addr:x}]
         push eax
         push edx
-        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
-        jne skip_heading
         mov edx, 0x{PLAYER_PTR_ADDR:x}
         mov eax, dword ptr [edx]
         test eax, eax
@@ -145,12 +142,17 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
   return encoded
 
 
+PLAYER_OBJ_PTR = 0x004EAA04
+
+
 def build_spawn_trampoline(ks, cave_addr, game_heading_addr):
   code = f"""
         pushfd
-        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
         mov eax, dword ptr [esi + 0x8c]
+        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
         je done
+        cmp esi, dword ptr [0x{PLAYER_OBJ_PTR:x}]
+        jne done
         mov eax, dword ptr [0x{game_heading_addr:x}]
     done:
         popfd
