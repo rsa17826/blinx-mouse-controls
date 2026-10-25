@@ -1,9 +1,10 @@
 import sys, struct
+
 sys.path.insert(0, "lib")
 from gdb_rsp import connect, set_watchpoint, remove_watchpoint, send_packet, wait_for_stop, read_all_registers, readf, cmd_continue
 
-LAST = 0x141fc9
-MEM = {"yaw": 0x141fb9, "pi": 0x141fbd, "hoff": 0x141fc5, "last": LAST, "heading": 0x4eaaac}
+LAST = 0x141FC9
+MEM = {"yaw": 0x141FB9, "pi": 0x141FBD, "hoff": 0x141FC5, "last": LAST, "heading": 0x4EAAAC}
 
 
 def ext80(raw):
@@ -35,7 +36,9 @@ try:
     lg = [st[(top + i) & 7] for i in range(8)]
     mem = {k: readf(sock, a) for k, a in MEM.items()}
     print(f"eip={eip:#x} top={top} st0={lg[0]:+.4f} st1={lg[1]:+.4f} st2={lg[2]:+.4f} phys={[round(x, 3) for x in st]}")
+
     print("   mem: " + " ".join(f"{k}={v:+.4f}" for k, v in mem.items()))
+
 
 finally:
   remove_watchpoint(sock, LAST, 4)

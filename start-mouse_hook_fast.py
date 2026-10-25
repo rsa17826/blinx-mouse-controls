@@ -12,40 +12,23 @@ Usage:
 
 """
 
+import subprocess
 import argparse
 import math
 import os
 import struct
 import sys
 import threading
-from evdev import UInput, AbsInfo, ecodes as e
 
 sys.path.insert(0, ".")
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), './lib')))
-from iman_client import FilterConnection, EV_REL, EV_KEY # noqa: E402
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "./lib")))
+from iman_client import FilterConnection
 from fastmem import FastMemWriter # noqa: E402
 
 PIDFILE = "/tmp/virtual_xbox_controller.pid"
 FIFO_PATH = "/tmp/virtual_xbox_controller.fifo"
 
-KEY_W = 17
-KEY_A = 30
-KEY_S = 31
-KEY_D = 32
-KEY_E = 18
-KEY_Q = 16
-KEY_R = 19
-KEY_SPACE = 57
-KEY_LEFTSHIFT = 42
-KEY_LEFTCTRL = 29
-KEY_TAB = 15
-KEY_ESC = 1
-KEY_ENTER = 28
-KEY_RIGHTSHIFT = 54
-
-BTN_LEFT = 272
-BTN_RIGHT = 273
-BTN_MIDDLE = 274
+import keymap as km
 
 PITCH_MIN = -1.5
 PITCH_MAX = 1.5
@@ -77,7 +60,7 @@ class GamepadClient:
     self.fifo.flush()
 
   def syn(self):
-    self.write(e.EV_SYN, e.SYN_REPORT, 0)
+    self.write(km.EV_SYN, km.SYN_REPORT, 0)
 
   def close(self):
     self.fifo.close()
@@ -112,12 +95,12 @@ def main():
   print(f"Initial pitch (final)={pitch:.4f} yaw={yaw:.4f}")
   writer.write_float(pitch_addr, pitch)
 
-  # Track pressed keys for analog stick calculation
-  key_states = {
-    KEY_W: False,
-    KEY_A: False,
-    KEY_S: False,
-    KEY_D: False,
+  # Track pressed km.keys for analog stick calculation
+  km.key_states = {
+    km.KEY_W: False,
+    km.KEY_A: False,
+    km.KEY_S: False,
+    km.KEY_D: False,
   }
 
   try:
@@ -145,15 +128,15 @@ def main():
   def update_left_stick():
     heading_addr = yaw_addr + 12
 
-    side = int(key_states[KEY_D]) - int(key_states[KEY_A])
-    fwd = int(key_states[KEY_W]) - int(key_states[KEY_S])
+    side = int(km.key_states[km.KEY_D]) - int(km.key_states[km.KEY_A])
+    fwd = int(km.key_states[km.KEY_W]) - int(km.key_states[km.KEY_S])
 
-    # When no movement keys are held, center the analog stick completely (0, 0)
+    # When no movement km.keys are held, center the analog stick completely (0, 0)
     # This frees up the stick so menus work normally.
     if side == 0 and fwd == 0:
       writer.write_float(heading_addr, 0.0)
-      gamepad.write(e.EV_ABS, e.ABS_X, 0)
-      gamepad.write(e.EV_ABS, e.ABS_Y, 0)
+      gamepad.write(km.EV_ABS, km.ABS_X, 0)
+      gamepad.write(km.EV_ABS, km.ABS_Y, 0)
       gamepad.syn()
       return
 
@@ -172,8 +155,8 @@ def main():
     #   lx = int(lx * 0.7071)
     #   ly = int(ly * 0.7071)
 
-    gamepad.write(e.EV_ABS, e.ABS_X, lx)
-    gamepad.write(e.EV_ABS, e.ABS_Y, ly)
+    gamepad.write(km.EV_ABS, km.ABS_X, lx)
+    gamepad.write(km.EV_ABS, km.ABS_Y, ly)
     gamepad.syn()
 
   def flush_loop():
@@ -196,7 +179,7 @@ def main():
       while not stop_event.is_set():
         ev = conn.read_event()
         block = False
-        if ev["type"] == EV_KEY and ev["code"] == 109 and ev["value"] == 1:
+        if ev["type"] == km.EV_KEY and ev["code"] == km.KEY_PAGEDOWN and ev["value"] == 1:
           paused = not paused
           conn.block_input(ev["seq"], True)
           continue
@@ -206,7 +189,7 @@ def main():
           continue
 
         # Mouse Look Motion
-        if ev["type"] == EV_REL:
+        if ev["type"] == km.EV_REL:
           if ev["code"] == 0: # REL_X
             with state_lock:
               state["yaw"] += ev["value"] * args.sensitivity
@@ -227,82 +210,83 @@ def main():
 
 
         # Keyboard & Mouse Button Input
-        elif ev["type"] == EV_KEY:
+        elif ev["type"] == km.EV_KEY:
           code = ev["code"]
           pressed = bool(ev["value"])
 
           # WASD -> Left Stick
-          if code in key_states:
-            key_states[code] = pressed
+          if code in km.key_states:
+            km.key_states[code] = pressed
             update_left_stick()
             block = True
 
+          elif code == km.KEY_KP7:
+            subprocess.Popen(args=["./call/il_superbomb"], executable="./call/il_superbomb")
+
           # LButton -> Controller X
-          elif code == BTN_LEFT:
-            gamepad.write(e.EV_KEY, e.BTN_NORTH, 1 if pressed else 0)
+          elif code == km.BTN_LEFT:
+            gamepad.write(km.EV_KEY, km.BTN_NORTH, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Space -> Controller A
-          elif code == KEY_SPACE:
-            gamepad.write(e.EV_KEY, e.BTN_SOUTH, 1 if pressed else 0)
+          elif code == km.KEY_SPACE:
+            gamepad.write(km.EV_KEY, km.BTN_SOUTH, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # RButton -> Controller B
-          elif code == BTN_RIGHT:
-            gamepad.write(e.EV_KEY, e.BTN_EAST, 1 if pressed else 0)
+          elif code == km.BTN_RIGHT:
+            gamepad.write(km.EV_KEY, km.BTN_EAST, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # E Key -> Controller Y
-          elif code == KEY_E:
-            gamepad.write(e.EV_KEY, e.BTN_WEST, 1 if pressed else 0)
+          elif code == km.KEY_E:
+            gamepad.write(km.EV_KEY, km.BTN_WEST, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Q Key -> Left Bumper (LB)
-          elif code == KEY_Q:
-            gamepad.write(e.EV_KEY, e.BTN_TL, 1 if pressed else 0)
+          elif code == km.KEY_Q:
+            gamepad.write(km.EV_KEY, km.BTN_TL, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Middle Mouse / R Key -> Right Bumper (RB)
-          elif code in (BTN_MIDDLE, KEY_R):
-            gamepad.write(e.EV_KEY, e.BTN_TR, 1 if pressed else 0)
+          elif code in (km.BTN_MIDDLE, km.KEY_R):
+            gamepad.write(km.EV_KEY, km.BTN_TR, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Left Shift -> Left Trigger (LT / Aim)
-          elif code == KEY_LEFTSHIFT:
-            gamepad.write(e.EV_ABS, e.ABS_Z, 255 if pressed else 0)
+          elif code == km.KEY_LEFTSHIFT:
+            gamepad.write(km.EV_ABS, km.ABS_Z, 255 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Right Shift -> Right Trigger (RT / Shoot)
-          elif code == KEY_RIGHTSHIFT:
-            gamepad.write(e.EV_ABS, e.ABS_RZ, 255 if pressed else 0)
+          elif code == km.KEY_RIGHTSHIFT:
+            gamepad.write(km.EV_ABS, km.ABS_RZ, 255 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Left Control -> L3 (Left Stick Click)
-          elif code == KEY_LEFTCTRL:
-            gamepad.write(e.EV_KEY, e.BTN_THUMBL, 1 if pressed else 0)
+          elif code == km.KEY_LEFTCTRL:
+            gamepad.write(km.EV_KEY, km.BTN_THUMBL, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
           # Tab -> Back / Select
-          elif code == KEY_TAB:
-            gamepad.write(e.EV_KEY, e.BTN_SELECT, 1 if pressed else 0)
+          elif code == km.KEY_TAB:
+            gamepad.write(km.EV_KEY, km.BTN_SELECT, 1 if pressed else 0)
             gamepad.syn()
             block = True
-          elif code == KEY_ENTER:
-            gamepad.write(e.EV_KEY, e.BTN_START, 1 if pressed else 0)
+          elif code == km.KEY_ENTER:
+            gamepad.write(km.EV_KEY, km.BTN_START, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
-
-          # print(code)
 
         conn.block_input(ev["seq"], block)
 

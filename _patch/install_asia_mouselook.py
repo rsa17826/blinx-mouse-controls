@@ -32,7 +32,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
-from fastmem import FastMemWriter  # noqa: E402
+from fastmem import FastMemWriter # noqa: E402
 
 try:
   from keystone import Ks, KS_ARCH_X86, KS_MODE_32

@@ -20,7 +20,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
-from fastmem import FastMemWriter  # noqa: E402
+from fastmem import FastMemWriter # noqa: E402
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32 # noqa: E402
 
 CUTSCENE_FLAG_ADDR = 0x9DD79C
@@ -54,9 +54,11 @@ def build_stub(ks, cave, dest, return_addr, game_heading_addr):
         jmp done
     normal:
         fld dword ptr [esi + 0x8c]
+
     done:
         popfd
         jmp 0x{return_addr:x}
+
     """
   else:
     code = f"""
@@ -70,6 +72,7 @@ def build_stub(ks, cave, dest, return_addr, game_heading_addr):
     done:
         popfd
         jmp 0x{return_addr:x}
+
     """
 
   stub = asm(ks, code, cave)
@@ -104,6 +107,7 @@ def main():
       if current != original:
         raise RuntimeError(f"Unexpected bytes at 0x{hook_addr:x}: {current.hex()} (already patched? load the savestate)")
 
+
     if mem.read(cave, total) != bytes(total):
       raise RuntimeError(f"Cave at 0x{cave:x} is not {total} zero bytes")
 
@@ -112,6 +116,10 @@ def main():
 
     for hook_addr, _, _, _, jmp in plan:
       mem.write_verified(hook_addr, jmp, f"hook 0x{hook_addr:x}")
+
+
+  except Exception as e:
+    raise (e)
 
   finally:
     mem.close()

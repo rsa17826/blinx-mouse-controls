@@ -30,8 +30,8 @@ from gdb_rsp import connect, read_memory, cmd_continue # noqa: E402
 # the smoothing blend factor, not our injected scratch.
 CAM_PITCH_OUT = 0x009DD7E0
 CAM_YAW_OUT = 0x009DD7E4
-CAM_ROLL_OUT = 0x009DD7E8  # inferred from the DAT_009dd7e0/7e4/7e8 naming pattern in the decompile - unverified, watch for whether it moves sensibly
-BLEND_FACTOR_GUESS = None  # address of DAT_009dd7dc unknown - not polled
+CAM_ROLL_OUT = 0x009DD7E8 # inferred from the DAT_009dd7e0/7e4/7e8 naming pattern in the decompile - unverified, watch for whether it moves sensibly
+BLEND_FACTOR_GUESS = None # address of DAT_009dd7dc unknown - not polled
 
 
 def read_f32(sock, addr):
@@ -90,6 +90,8 @@ def main():
 
       if b"$" in buf:
         sock.sendall(b"+")
+
+
 
   except KeyboardInterrupt:
     print("\nStopped. Resuming guest.")

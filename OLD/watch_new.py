@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Two-phase watchpoint: learn which EIPs fire normally, then report only new ones.
 
-Phase 1 (baseline): the guest runs normally; every EIP that hits the watchpoint
+Phase 1 (baseline): the guest runs normally
 is recorded as "normal". Do NOT trigger the thing you are looking for.
 Phase 2 (trigger): trigger it. Only EIPs not seen in phase 1 are reported, once
 each, with registers and the code just before the EIP.
@@ -11,6 +11,7 @@ Usage (run from the project root):
 
 Example:
     python3 lib/watch_new.py 0x4eaaac 4 3 15 20
+
 """
 
 import os
@@ -19,7 +20,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gdb_rsp import (  # noqa: E402
+from gdb_rsp import ( # noqa: E402
   I386_REG_NAMES,
   cmd_continue,
   connect,
@@ -70,6 +71,7 @@ def main():
       sock.settimeout(0.2)
       try:
         wait_for_stop(sock)
+
       except socket.timeout:
         continue
 
@@ -96,6 +98,9 @@ def main():
         data = try_read(sock, regs[name], 32)
         if data is not None:
           print(f"  [{name}=0x{regs[name]:08x}]: {data.hex()}")
+
+
+
 
   finally:
     if running:

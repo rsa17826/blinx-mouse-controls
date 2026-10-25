@@ -26,12 +26,13 @@ of 10 entries (the game fails to load a level if this is exceeded),
 so this script stops with a clear error rather than silently
 truncating if the requested additions would overflow it.
 
-Requires xemu running and lib/fastmem.py (RAM base is cached in
-/tmp/xemu_ram_base.json; the gdbstub is only needed when it is cold).
+Requires xemu running and lib/fastmem.py (RAM base and CR3 are cached in
+/tmp/xemu_ram_base.json
 """
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
 from fastmem import FastMemWriter
 
 TYPE_MAP = {
@@ -123,7 +124,6 @@ if __name__ == "__main__":
     argv.remove("--ool")
   else:
     struct_key = "both"
-
 
   replace = "--replace" in argv
   if replace:

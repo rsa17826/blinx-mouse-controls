@@ -7,6 +7,7 @@ Usage:
 Hold the fire button while it runs. Run it twice (fast-forward off, then on)
 and compare which callers only show up when the shot offset happens.
 """
+
 import collections
 import sys
 
@@ -39,10 +40,13 @@ try:
     regs = parse_registers(read_all_registers(sock))
     ret = int.from_bytes(read_memory(sock, regs["esp"], 4), "little")
     callers[ret] += 1
+
+
 except KeyboardInterrupt:
   print("\nInterrupted.")
   sock.sendall(b"\x03")
   wait_for_stop(sock)
+
 finally:
   send_packet(sock, f"z0,{RNG_ENTRY:x},1".encode())
   recv_ack_or_packet(sock)
@@ -51,3 +55,4 @@ finally:
   print("Return addresses:")
   for ret, n in callers.most_common():
     print(f"  0x{ret:08x}: {n}")
+

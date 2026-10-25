@@ -298,6 +298,7 @@ def cmd_watch(watch_addr, length, hits, kind=b"2"):
   set_watchpoint(sock, watch_addr, length, kind=kind)
 
   seen = {} # eip -> hit count
+  ignored = 0
   running = False
   try:
     i = 0
@@ -305,6 +306,7 @@ def cmd_watch(watch_addr, length, hits, kind=b"2"):
       send_packet(sock, b"c")
       running = True
       stop = wait_for_stop(sock).decode()
+      print(stop)
       running = False
       if f"watch:{watch_addr:x};" not in stop:
         raise RuntimeError(f"Stopped for a different reason than our watchpoint: {stop}")
@@ -312,6 +314,8 @@ def cmd_watch(watch_addr, length, hits, kind=b"2"):
       regs = parse_registers(read_all_registers(sock))
       eip = regs["eip"]
       if is_ignored(eip):
+        ignored += 1
+        print(f"  (ignored hit at EIP 0x{eip:08x}, total ignored {ignored})")
         continue
 
       i += 1

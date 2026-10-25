@@ -3,6 +3,7 @@
 
 Hook: 0xd53cc, 10 bytes:
     xor edi,edi
+
 The cave re-executes them, then zeroes edi when esi is the player object
 (the pointer stored at 0x4eaa04). Other actors are untouched.
 Result: sector (player+0x1b) is always 0, so no side/back flips and no
@@ -13,11 +14,12 @@ Usage:
 
 The cave must be 32 zero bytes. Load a savestate with original bytes first.
 """
+
 import sys, os
 
 sys.path.insert(0, ".")
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
-from fastmem import FastMemWriter  # noqa: E402
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
+from fastmem import FastMemWriter # noqa: E402
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32
 
 HOOK_ADDR = 0x000D53CC
@@ -48,12 +50,14 @@ def main():
         xor edi, edi
     done:
         jmp 0x{RETURN_ADDR:x}
+
     """,
     cave + HOOK_LEN,
   )
   stub = ORIGINAL + tail
   if len(stub) > CAVE_SIZE:
     raise RuntimeError(f"Stub too large: {len(stub)} bytes")
+
   hook = asm(ks, f"jmp 0x{cave:x}", HOOK_ADDR)
   hook += b"\x90" * (HOOK_LEN - len(hook))
 
@@ -62,12 +66,19 @@ def main():
     current = mem.read(HOOK_ADDR, HOOK_LEN)
     if current != ORIGINAL:
       raise RuntimeError(f"Unexpected bytes at 0x{HOOK_ADDR:x}: {current.hex()} (already patched? load the savestate)")
+
     if mem.read(cave, CAVE_SIZE) != bytes(CAVE_SIZE):
       raise RuntimeError(f"Cave at 0x{cave:x} is not {CAVE_SIZE} zero bytes")
+
     mem.write_verified(cave, stub, "stub")
     mem.write_verified(HOOK_ADDR, hook, "hook")
+
+  except Exception as e:
+    raise (e)
+
   finally:
     mem.close()
+
   print("Stick angle zeroing installed.")
 
 

@@ -11,6 +11,7 @@ from gdb_rsp import cmd_continue, connect, read_memory, write_memory # noqa: E40
 PHYS_OFFSET = 0xAF000
 # CONFIRMED RAM_HOST_BASE = 0x702eabc00000
 
+
 def find_xemu_pid():
   out = subprocess.check_output(["pgrep", "-fa", "^xemu"]).decode()
   print(out, file=sys.stderr)

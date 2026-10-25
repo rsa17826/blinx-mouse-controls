@@ -16,7 +16,7 @@ The cave must be 128 zero bytes. Requires install_asia_mouselook.py installed
 import sys, os
 
 sys.path.insert(0, ".")
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
 from fastmem import FastMemWriter  # noqa: E402
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32
 
@@ -120,6 +120,9 @@ def main():
 
     mem.write_verified(code_addr, stub, "stub")
     mem.write_verified(HOOK_ADDR, hook, "hook")
+
+  except Exception as e:
+    raise (e)
 
   finally:
     mem.close()

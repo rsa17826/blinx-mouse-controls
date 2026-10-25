@@ -7,6 +7,7 @@ Usage:
 If aim/facing becomes correct while this runs, the game reads +0x34.
 Ctrl-C to stop.
 """
+
 import struct
 import subprocess
 import sys
@@ -40,10 +41,14 @@ try:
     raw = fd.read(4)
     if len(raw) != 4:
       raise RuntimeError("short read of heading")
+
     fd.seek(host(LATCH))
     fd.write(raw)
     time.sleep(interval)
+
+
 except KeyboardInterrupt:
   print("\nStopped.")
+
 finally:
   fd.close()
