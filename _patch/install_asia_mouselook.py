@@ -106,7 +106,7 @@ def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
   return encoded
 
 
-def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, last_written_addr, game_heading_addr):
+def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, game_heading_addr):
   code = f"""
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
@@ -116,17 +116,15 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
         mov eax, dword ptr [edx]
         test eax, eax
         jz skip_heading
+        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
+        jne write_heading
         mov edx, dword ptr [eax + 0x{HEADING_OFFSET:x}]
-        cmp edx, dword ptr [0x{last_written_addr:x}]
-        je no_capture
         mov dword ptr [0x{game_heading_addr:x}], edx
-    no_capture:
+    write_heading:
         fld st(0)
         fadd dword ptr [0x{pi_scratch:x}]
         fadd dword ptr [0x{heading_offset_addr:x}]
         fstp dword ptr [eax + 0x{HEADING_OFFSET:x}]
-        mov edx, dword ptr [eax + 0x{HEADING_OFFSET:x}]
-        mov dword ptr [0x{last_written_addr:x}], edx
 
     skip_heading:
         fadd dword ptr [0x{render_yaw_offset_addr:x}]
@@ -227,7 +225,7 @@ def main():
 
   last_written_addr = heading_offset_addr + 4
   game_heading_addr = last_written_addr + 4
-  total_size = (pitch_value_addr + 28) - cave_addr
+  total_size = (pitch_value_addr + 32) - cave_addr
   if read_memory(sock, cave_addr, total_size) != bytes(total_size):
     raise RuntimeError(f"Cave 0x{cave_addr:x}..+0x{total_size:x} is not all zero. Load a savestate or pick another cave.")
 
@@ -235,10 +233,8 @@ def main():
   if orig_spawn != SPAWN_ORIGINAL:
     raise RuntimeError(f"Unexpected bytes at spawn hook: {orig_spawn.hex()}")
 
-  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, last_written_addr, game_heading_addr)
   spawn_trampoline_code = build_spawn_trampoline(ks, spawn_trampoline_addr, game_heading_addr)
   spawn_hook_bytes = build_hook_jmp(ks, SPAWN_HOOK_ADDR, SPAWN_HOOK_LEN, spawn_trampoline_addr)
-
   print(f"Cave base:            0x{cave_addr:08x}")
   print(f"Pitch trampoline:     0x{pitch_trampoline_addr:08x}")
   print(f"Yaw trampoline:       0x{yaw_trampoline_addr:08x}")
@@ -257,7 +253,7 @@ def main():
 
 
   pitch_trampoline_code = build_pitch_trampoline(ks, pitch_trampoline_addr, pitch_value_addr, PITCH_RETURN_ADDR, pitch_tail_addr)
-  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, last_written_addr, game_heading_addr)
+  yaw_trampoline_code = build_yaw_trampoline(ks, yaw_trampoline_addr, yaw_value_addr, pi_scratch_addr, render_yaw_offset_addr, YAW_RETURN_ADDR, heading_offset_addr, game_heading_addr)
   roll_trampoline_code = build_roll_trampoline(ks, roll_trampoline_addr, ROLL_RETURN_ADDR)
 
   pitch_hook_bytes = build_hook_jmp(ks, PITCH_HOOK_ADDR, PITCH_HOOK_LEN, pitch_trampoline_addr)

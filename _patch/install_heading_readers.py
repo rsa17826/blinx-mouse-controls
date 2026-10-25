@@ -24,7 +24,7 @@ from keystone import Ks, KS_ARCH_X86, KS_MODE_32 # noqa: E402
 CUTSCENE_FLAG_ADDR = 0x9DD79C
 PLAYER_OBJ_PTR = 0x004EAA04
 HOOK_LEN = 6
-STUB_SLOT = 48
+STUB_SLOT = 40
 
 # (hook address, original bytes, destination: a register, or "fld" for an x87 load)
 HOOKS = [
@@ -33,6 +33,7 @@ HOOKS = [
   (0x000D8D67, "8b968c000000", "edx"),
   (0x000DB59E, "8b8e8c000000", "ecx"),
   (0x000A05C7, "d9868c000000", "fld"),
+  (0x000D8A0C, "8b968c000000", "edx"),
 ]
 
 
