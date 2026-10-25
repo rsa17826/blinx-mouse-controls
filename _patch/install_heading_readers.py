@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Redirect the game's reads of the player's heading (object+0x8c) to the
-captured game heading while a cutscene is running.
+"""Make the player's WALK direction follow the mouse camera during cutscenes,
+while the real heading field (object+0x8c) keeps the game's own value.
 
-Each hook is a 6-byte read of [esi+0x8c]. The stub does the original read,
-then, only when the cutscene flag is set AND esi is the player object, loads
-the captured game heading instead. The spawn read at 0xd4163 is handled by
-install_asia_mouselook.py.
+Each hook is a 6-byte read of [esi+0x8c] that builds the player's rotation
+(0xd52c4, 0xd5d85, 0xd8d67, 0xd8a0c). The stub does the original read, then, only when the
+cutscene flag is set AND esi is the player object, loads the mouse walk heading
+instead. install_asia_mouselook.py's yaw trampoline stores that walk heading
+(camera yaw + pi + WASD angle) at the slot passed below, during cutscenes only.
 
 Usage:
-    python3 install_heading_readers.py <hex_cave_addr> <hex_game_heading_addr>
+    python3 install_heading_readers.py <hex_cave_addr> <hex_walk_heading_addr>
 
-game_heading_addr is mouselook's cave + 208 + 24 (0x141fcd for cave 0x141ee5).
-The cave must be 240 zero bytes. Load a savestate with original bytes first.
+walk_heading_addr is mouselook's cave + 208 + 24 (0x141fcd for cave 0x141ee5).
+The cave must be 160 zero bytes (40 per hook). Load a savestate with original
+bytes first.
 """
 
 import sys, os
@@ -31,8 +33,6 @@ HOOKS = [
   (0x000D52C4, "8b868c000000", "eax"),
   (0x000D5D85, "8b968c000000", "edx"),
   (0x000D8D67, "8b968c000000", "edx"),
-  (0x000DB59E, "8b8e8c000000", "ecx"),
-  (0x000A05C7, "d9868c000000", "fld"),
   (0x000D8A0C, "8b968c000000", "edx"),
 ]
 

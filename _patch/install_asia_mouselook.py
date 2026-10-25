@@ -61,10 +61,6 @@ PITCH_SLOT = 64
 YAW_SLOT = 88
 ROLL_SLOT = 16 # roll code is 9 bytes
 
-SPAWN_HOOK_ADDR = 0x000D4163
-SPAWN_HOOK_LEN = 6
-SPAWN_RETURN_ADDR = 0x000D4169
-SPAWN_ORIGINAL = bytes.fromhex("8b868c000000") # mov eax, [esi+0x8c]
 
 CUTSCENE_FLAG_ADDR = 0x9DD79C
 FMUL_ABS_PREFIX = bytes.fromhex("d80d")
@@ -106,7 +102,7 @@ def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
   return encoded
 
 
-def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, game_heading_addr):
+def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, walk_heading_addr):
   code = f"""
         fstp st(0)
         fld dword ptr [0x{value_addr:x}]
@@ -116,15 +112,15 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
         mov eax, dword ptr [edx]
         test eax, eax
         jz skip_heading
-        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
-        jne write_heading
-        mov edx, dword ptr [eax + 0x{HEADING_OFFSET:x}]
-        mov dword ptr [0x{game_heading_addr:x}], edx
-    write_heading:
         fld st(0)
         fadd dword ptr [0x{pi_scratch:x}]
         fadd dword ptr [0x{heading_offset_addr:x}]
+        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
+        jne cutscene_store
         fstp dword ptr [eax + 0x{HEADING_OFFSET:x}]
+        jmp skip_heading
+    cutscene_store:
+        fstp dword ptr [0x{walk_heading_addr:x}]
 
     skip_heading:
         fadd dword ptr [0x{render_yaw_offset_addr:x}]
@@ -141,27 +137,6 @@ def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offse
 
 
 PLAYER_OBJ_PTR = 0x004EAA04
-
-
-def build_spawn_trampoline(ks, cave_addr, game_heading_addr):
-  code = f"""
-        pushfd
-        mov eax, dword ptr [esi + 0x8c]
-        cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
-        je done
-        cmp esi, dword ptr [0x{PLAYER_OBJ_PTR:x}]
-        jne done
-        mov eax, dword ptr [0x{game_heading_addr:x}]
-    done:
-        popfd
-        jmp 0x{SPAWN_RETURN_ADDR:x}
-
-    """
-  encoded = asm(ks, code, cave_addr)
-  if len(encoded) > 40:
-    raise RuntimeError(f"Spawn trampoline exceeds 40 bytes ({len(encoded)}).")
-
-  return encoded
 
 
 def build_roll_trampoline(ks, cave_addr, return_addr):
@@ -205,7 +180,6 @@ def main():
   pitch_trampoline_addr = cave_addr
   yaw_trampoline_addr = cave_addr + PITCH_SLOT # +64 .. +152
   roll_trampoline_addr = yaw_trampoline_addr + YAW_SLOT # +152 .. +168
-  spawn_trampoline_addr = roll_trampoline_addr + ROLL_SLOT # +168 .. +195
   pitch_value_addr = cave_addr + 208 # pinned, same as before
   ks = Ks(KS_ARCH_X86, KS_MODE_32)
 
@@ -229,12 +203,6 @@ def main():
   if read_memory(sock, cave_addr, total_size) != bytes(total_size):
     raise RuntimeError(f"Cave 0x{cave_addr:x}..+0x{total_size:x} is not all zero. Load a savestate or pick another cave.")
 
-  orig_spawn = read_memory(sock, SPAWN_HOOK_ADDR, SPAWN_HOOK_LEN)
-  if orig_spawn != SPAWN_ORIGINAL:
-    raise RuntimeError(f"Unexpected bytes at spawn hook: {orig_spawn.hex()}")
-
-  spawn_trampoline_code = build_spawn_trampoline(ks, spawn_trampoline_addr, game_heading_addr)
-  spawn_hook_bytes = build_hook_jmp(ks, SPAWN_HOOK_ADDR, SPAWN_HOOK_LEN, spawn_trampoline_addr)
   print(f"Cave base:            0x{cave_addr:08x}")
   print(f"Pitch trampoline:     0x{pitch_trampoline_addr:08x}")
   print(f"Yaw trampoline:       0x{yaw_trampoline_addr:08x}")
@@ -266,8 +234,6 @@ def main():
 
   print()
   try:
-    verified_write(sock, spawn_trampoline_addr, spawn_trampoline_code, "spawn trampoline")
-
     verified_write(sock, game_heading_addr, bytes(4), "game heading scratch (init)")
     verified_write(sock, last_written_addr, bytes(4), "last written heading (init)")
 
@@ -291,7 +257,6 @@ def main():
     verified_write(sock, PITCH_HOOK_ADDR, pitch_hook_bytes, "pitch hook jmp")
     verified_write(sock, YAW_HOOK_ADDR, yaw_hook_bytes, "yaw hook jmp")
     verified_write(sock, ROLL_HOOK_ADDR, roll_hook_bytes, "roll hook jmp")
-    verified_write(sock, SPAWN_HOOK_ADDR, spawn_hook_bytes, "spawn hook jmp")
 
   except RuntimeError as e:
     print(f"\n{e}")
