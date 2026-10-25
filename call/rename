@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+IN=/home/nyix/videos/flashback/
+lv="$(IFS='' printf "%s" "$*")"
+lv=${lv/-/}
+lv=${lv/ /}
+sublv="${lv:1:2}"
+world="${lv:0:1}"
+
+OUT=/data/vvv/MathbreakersSpeedruns/blinx/r/$world/$sublv
+NEWEST=$(find $IN -type f -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d' ' -f2-)
+dest="$OUT/$(./call/gettimes.py "$@" | cut -d' ' -f2).mp4"
+echo -- "$NEWEST" "$dest"
+file "$dest"
+read -r _
+mv "$NEWEST" "$dest"
