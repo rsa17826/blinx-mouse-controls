@@ -20,7 +20,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
-from gdb_rsp import connect, read_memory, write_memory, cmd_continue # noqa: E402
+from fastmem import FastMemWriter  # noqa: E402
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32 # noqa: E402
 
 CUTSCENE_FLAG_ADDR = 0x9DD79C
@@ -79,15 +79,6 @@ def build_stub(ks, cave, dest, return_addr, game_heading_addr):
   return stub
 
 
-def verified_write(sock, addr, data, label):
-  write_memory(sock, addr, data)
-  readback = read_memory(sock, addr, len(data))
-  if readback != data:
-    raise RuntimeError(f"Write verification FAILED for {label}: wrote {data.hex()}, read {readback.hex()}")
-
-  print(f"  verified: {label} at 0x{addr:08x}")
-
-
 def main():
   if len(sys.argv) < 3:
     print(__doc__)
@@ -106,24 +97,24 @@ def main():
     jmp += b"\x90" * (HOOK_LEN - len(jmp))
     plan.append((hook_addr, bytes.fromhex(original), stub_addr, stub, jmp))
 
-  sock = connect()
+  mem = FastMemWriter()
   try:
     for hook_addr, original, _, _, _ in plan:
-      current = read_memory(sock, hook_addr, HOOK_LEN)
+      current = mem.read(hook_addr, HOOK_LEN)
       if current != original:
         raise RuntimeError(f"Unexpected bytes at 0x{hook_addr:x}: {current.hex()} (already patched? load the savestate)")
 
-    if read_memory(sock, cave, total) != bytes(total):
+    if mem.read(cave, total) != bytes(total):
       raise RuntimeError(f"Cave at 0x{cave:x} is not {total} zero bytes")
 
     for hook_addr, _, stub_addr, stub, _ in plan:
-      verified_write(sock, stub_addr, stub, f"stub for 0x{hook_addr:x}")
+      mem.write_verified(stub_addr, stub, f"stub for 0x{hook_addr:x}")
 
     for hook_addr, _, _, _, jmp in plan:
-      verified_write(sock, hook_addr, jmp, f"hook 0x{hook_addr:x}")
+      mem.write_verified(hook_addr, jmp, f"hook 0x{hook_addr:x}")
 
   finally:
-    cmd_continue(sock)
+    mem.close()
 
   print("Heading readers redirected during cutscenes.")
 

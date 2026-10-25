@@ -17,7 +17,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
-from gdb_rsp import connect, read_memory, write_memory, cmd_continue
+from fastmem import FastMemWriter  # noqa: E402
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32
 
 HOOK_ADDR = 0x000DCC47
@@ -34,15 +34,6 @@ CAVE_SIZE = 128
 def asm(ks, code, address):
   encoding, _ = ks.asm(code, address)
   return bytes(encoding)
-
-
-def verified_write(sock, addr, data, label):
-  write_memory(sock, addr, data)
-  readback = read_memory(sock, addr, len(data))
-  if readback != data:
-    raise RuntimeError(f"Write verification FAILED for {label}: wrote {data.hex()}, read {readback.hex()}")
-
-  print(f"  verified: {label} at 0x{addr:08x}")
 
 
 def main():
@@ -118,20 +109,20 @@ def main():
   if len(hook) != HOOK_LEN:
     raise RuntimeError(f"Expected {HOOK_LEN}-byte call, got {len(hook)}")
 
-  sock = connect()
+  mem = FastMemWriter()
   try:
-    current = read_memory(sock, HOOK_ADDR, HOOK_LEN)
+    current = mem.read(HOOK_ADDR, HOOK_LEN)
     if current != ORIGINAL:
       raise RuntimeError(f"Unexpected bytes at 0x{HOOK_ADDR:x}: {current.hex()} (already patched? load the savestate)")
 
-    if read_memory(sock, cave, CAVE_SIZE) != bytes(CAVE_SIZE):
+    if mem.read(cave, CAVE_SIZE) != bytes(CAVE_SIZE):
       raise RuntimeError(f"Cave at 0x{cave:x} is not {CAVE_SIZE} zero bytes")
 
-    verified_write(sock, code_addr, stub, "stub")
-    verified_write(sock, HOOK_ADDR, hook, "hook")
+    mem.write_verified(code_addr, stub, "stub")
+    mem.write_verified(HOOK_ADDR, hook, "hook")
 
   finally:
-    cmd_continue(sock)
+    mem.close()
 
   print("Shot direction override installed.")
 

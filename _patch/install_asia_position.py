@@ -34,7 +34,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
-from gdb_rsp import connect, read_memory, write_memory, cmd_continue # noqa: E402
+from fastmem import FastMemWriter  # noqa: E402
 
 try:
   from keystone import Ks, KS_ARCH_X86, KS_MODE_32
@@ -205,15 +205,6 @@ def build_hook_jmp(ks, hook_addr, hook_len, target_addr):
   return encoded + bytes([0x90] * (hook_len - len(encoded)))
 
 
-def verified_write(sock, addr, data, label):
-  write_memory(sock, addr, data)
-  readback = read_memory(sock, addr, len(data))
-  if readback != data:
-    raise RuntimeError(f"Write verification FAILED for {label} at 0x{addr:x}: wrote {data.hex()}, read back {readback.hex()}.")
-
-  print(f"  verified write OK: {label} at 0x{addr:08x} ({len(data)} bytes)")
-
-
 def main():
   if len(sys.argv) < 3:
     print(__doc__)
@@ -253,29 +244,29 @@ def main():
   x_hook = build_hook_jmp(ks, X_HOOK_ADDR, X_HOOK_LEN, x_trampoline_addr)
   y_hook = build_hook_jmp(ks, Y_HOOK_ADDR, Y_HOOK_LEN, y_trampoline_addr)
   z_hook = build_hook_jmp(ks, Z_HOOK_ADDR, Z_HOOK_LEN, z_trampoline_addr)
-  sock = connect()
-  orig_x = read_memory(sock, X_HOOK_ADDR, X_HOOK_LEN)
-  orig_y = read_memory(sock, Y_HOOK_ADDR, Y_HOOK_LEN)
-  orig_z = read_memory(sock, Z_HOOK_ADDR, Z_HOOK_LEN)
+  mem = FastMemWriter()
+  orig_x = mem.read(X_HOOK_ADDR, X_HOOK_LEN)
+  orig_y = mem.read(Y_HOOK_ADDR, Y_HOOK_LEN)
+  orig_z = mem.read(Z_HOOK_ADDR, Z_HOOK_LEN)
   print(f"\nOriginal X/Y/Z hook bytes: {orig_x.hex()} / {orig_y.hex()} / {orig_z.hex()}")
   print()
   try:
-    verified_write(sock, eye_height_addr, struct.pack("<f", eye_height), "eye height const")
-    verified_write(sock, forward_offset_addr, struct.pack("<f", forward_offset), "forward offset const")
-    verified_write(sock, render_yaw_offset_addr, struct.pack("<f", render_yaw_offset), "render yaw offset (in mouselook's cave)")
-    verified_write(sock, x_trampoline_addr, x_code, "X trampoline")
-    verified_write(sock, y_trampoline_addr, y_code, "Y trampoline")
-    verified_write(sock, z_trampoline_addr, z_code, "Z trampoline")
-    verified_write(sock, X_HOOK_ADDR, x_hook, "X hook jmp")
-    verified_write(sock, Y_HOOK_ADDR, y_hook, "Y hook jmp")
-    verified_write(sock, Z_HOOK_ADDR, z_hook, "Z hook jmp")
+    mem.write_verified(eye_height_addr, struct.pack("<f", eye_height), "eye height const")
+    mem.write_verified(forward_offset_addr, struct.pack("<f", forward_offset), "forward offset const")
+    mem.write_verified(render_yaw_offset_addr, struct.pack("<f", render_yaw_offset), "render yaw offset (in mouselook's cave)")
+    mem.write_verified(x_trampoline_addr, x_code, "X trampoline")
+    mem.write_verified(y_trampoline_addr, y_code, "Y trampoline")
+    mem.write_verified(z_trampoline_addr, z_code, "Z trampoline")
+    mem.write_verified(X_HOOK_ADDR, x_hook, "X hook jmp")
+    mem.write_verified(Y_HOOK_ADDR, y_hook, "Y hook jmp")
+    mem.write_verified(Z_HOOK_ADDR, z_hook, "Z hook jmp")
 
   except RuntimeError as e:
     print(f"\n{e}\nPatch NOT fully installed - re-run this script.")
-    cmd_continue(sock)
+    mem.close()
     sys.exit(1)
 
-  cmd_continue(sock)
+  mem.close()
   print(f"\nPosition patch installed - camera orbits player at any look angle,")
   print(f"always facing the player ({forward_offset:+.1f} offset along view vector).")
   print(f"To tune dynamically without reinstalling:")

@@ -2,16 +2,14 @@
 import sys, os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
-from gdb_rsp import cmd_continue, connect, write_memory
+from fastmem import FastMemWriter
 
-sock = connect()
-import sys
+mem = FastMemWriter()
+try:
+  thing = bytes.fromhex(sys.argv[1])
+  mem.write(0xF0A9474D, bytes([0xA]))
+  for addr in range(0xF0A9474E, 0xF0A94757 + 0x1, 0x1):
+    mem.write(addr, thing)
 
-# thing = 0x54.to_bytes(1, byteorder="big", signed=False)
-# thing = 0x4F.to_bytes(1, byteorder="big", signed=False)
-thing = bytes.fromhex(sys.argv[1])
-write_memory(sock, 0xF0A9474D, 0xA.to_bytes(1, byteorder="big", signed=False))
-for addr in range(0xF0A9474E, 0xF0A94757 + 0x1, 0x1):
-  write_memory(sock, addr, thing)
-
-cmd_continue(sock)
+finally:
+  mem.close()

@@ -32,7 +32,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
-from gdb_rsp import connect, read_memory, write_memory, cmd_continue # noqa: E402
+from fastmem import FastMemWriter  # noqa: E402
 
 try:
   from keystone import Ks, KS_ARCH_X86, KS_MODE_32
@@ -162,15 +162,6 @@ def build_hook_jmp(ks, hook_addr, hook_len, target_addr):
   return encoded + padding
 
 
-def verified_write(sock, addr, data, label):
-  write_memory(sock, addr, data)
-  readback = read_memory(sock, addr, len(data))
-  if readback != data:
-    raise RuntimeError(f"Write verification FAILED for {label} at 0x{addr:x}: wrote {data.hex()}, read back {readback.hex()}.")
-
-  print(f"  verified write OK: {label} at 0x{addr:08x} ({len(data)} bytes)")
-
-
 def main():
   if len(sys.argv) < 2:
     print(__doc__)
@@ -183,11 +174,11 @@ def main():
   pitch_value_addr = cave_addr + 208 # pinned, same as before
   ks = Ks(KS_ARCH_X86, KS_MODE_32)
 
-  sock = connect()
+  mem = FastMemWriter()
 
-  orig_pitch = read_memory(sock, PITCH_HOOK_ADDR, PITCH_HOOK_LEN)
-  orig_yaw = read_memory(sock, YAW_HOOK_ADDR, YAW_HOOK_LEN)
-  orig_roll = read_memory(sock, ROLL_HOOK_ADDR, ROLL_HOOK_LEN)
+  orig_pitch = mem.read(PITCH_HOOK_ADDR, PITCH_HOOK_LEN)
+  orig_yaw = mem.read(YAW_HOOK_ADDR, YAW_HOOK_LEN)
+  orig_roll = mem.read(ROLL_HOOK_ADDR, ROLL_HOOK_LEN)
 
   pitch_trampoline_addr = cave_addr
   yaw_value_addr = pitch_value_addr + 4
@@ -200,7 +191,7 @@ def main():
   last_written_addr = heading_offset_addr + 4
   game_heading_addr = last_written_addr + 4
   total_size = (pitch_value_addr + 32) - cave_addr
-  if read_memory(sock, cave_addr, total_size) != bytes(total_size):
+  if mem.read(cave_addr, total_size) != bytes(total_size):
     raise RuntimeError(f"Cave 0x{cave_addr:x}..+0x{total_size:x} is not all zero. Load a savestate or pick another cave.")
 
   print(f"Cave base:            0x{cave_addr:08x}")
@@ -216,7 +207,7 @@ def main():
   pitch_tail_code = build_original_tail(ks, pitch_tail_addr, orig_pitch, PITCH_RETURN_ADDR)
 
   for addr in (pitch_tail_addr,):
-    if read_memory(sock, addr, TAIL_SIZE) != bytes(TAIL_SIZE):
+    if mem.read(addr, TAIL_SIZE) != bytes(TAIL_SIZE):
       raise RuntimeError(f"Tail area at 0x{addr:x} is not zero. Load a savestate first.")
 
 
@@ -234,37 +225,37 @@ def main():
 
   print()
   try:
-    verified_write(sock, game_heading_addr, bytes(4), "game heading scratch (init)")
-    verified_write(sock, last_written_addr, bytes(4), "last written heading (init)")
+    mem.write_verified(game_heading_addr, bytes(4), "game heading scratch (init)")
+    mem.write_verified(last_written_addr, bytes(4), "last written heading (init)")
 
-    verified_write(sock, pitch_tail_addr, pitch_tail_code, "pitch tail")
+    mem.write_verified(pitch_tail_addr, pitch_tail_code, "pitch tail")
 
-    verified_write(sock, pitch_trampoline_addr, pitch_trampoline_code, "pitch trampoline")
-    verified_write(sock, yaw_trampoline_addr, yaw_trampoline_code, "yaw trampoline")
-    verified_write(sock, roll_trampoline_addr, roll_trampoline_code, "roll trampoline")
+    mem.write_verified(pitch_trampoline_addr, pitch_trampoline_code, "pitch trampoline")
+    mem.write_verified(yaw_trampoline_addr, yaw_trampoline_code, "yaw trampoline")
+    mem.write_verified(roll_trampoline_addr, roll_trampoline_code, "roll trampoline")
 
-    current_pitch = read_memory(sock, 0x009DD7E0, 4)
-    current_yaw = read_memory(sock, 0x009DD7E4, 4)
-    verified_write(sock, pitch_value_addr, current_pitch, "pitch value scratch (init)")
-    verified_write(sock, yaw_value_addr, current_yaw, "yaw value scratch (init)")
+    current_pitch = mem.read(0x009DD7E0, 4)
+    current_yaw = mem.read(0x009DD7E4, 4)
+    mem.write_verified(pitch_value_addr, current_pitch, "pitch value scratch (init)")
+    mem.write_verified(yaw_value_addr, current_yaw, "yaw value scratch (init)")
 
-    verified_write(sock, heading_offset_addr, struct.pack("<f", 0.0), "heading offset (init)")
+    mem.write_verified(heading_offset_addr, struct.pack("<f", 0.0), "heading offset (init)")
 
     pi_bytes = struct.pack("<f", 3.14159265)
-    verified_write(sock, pi_scratch_addr, pi_bytes, "pi constant scratch (init)")
-    verified_write(sock, render_yaw_offset_addr, struct.pack("<f", 0.0), "render yaw offset (init)")
+    mem.write_verified(pi_scratch_addr, pi_bytes, "pi constant scratch (init)")
+    mem.write_verified(render_yaw_offset_addr, struct.pack("<f", 0.0), "render yaw offset (init)")
 
-    verified_write(sock, PITCH_HOOK_ADDR, pitch_hook_bytes, "pitch hook jmp")
-    verified_write(sock, YAW_HOOK_ADDR, yaw_hook_bytes, "yaw hook jmp")
-    verified_write(sock, ROLL_HOOK_ADDR, roll_hook_bytes, "roll hook jmp")
+    mem.write_verified(PITCH_HOOK_ADDR, pitch_hook_bytes, "pitch hook jmp")
+    mem.write_verified(YAW_HOOK_ADDR, yaw_hook_bytes, "yaw hook jmp")
+    mem.write_verified(ROLL_HOOK_ADDR, roll_hook_bytes, "roll hook jmp")
 
   except RuntimeError as e:
     print(f"\n{e}")
     print("Patch NOT fully installed - re-run this script.")
-    cmd_continue(sock)
+    mem.close()
     sys.exit(1)
 
-  cmd_continue(sock)
+  mem.close()
 
   print("\nPatch installed successfully.")
   print(f"  Yaw value scratch:   0x{yaw_value_addr:08x}")

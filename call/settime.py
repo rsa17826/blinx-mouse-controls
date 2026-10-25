@@ -26,13 +26,13 @@ of 10 entries (the game fails to load a level if this is exceeded),
 so this script stops with a clear error rather than silently
 truncating if the requested additions would overflow it.
 
-Requires xemu running with the gdbstub enabled (-s) and gdb_rsp.py
-in the same directory.
+Requires xemu running and lib/fastmem.py (RAM base is cached in
+/tmp/xemu_ram_base.json; the gdbstub is only needed when it is cold).
 """
 
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
-import gdb_rsp
+from fastmem import FastMemWriter
 
 TYPE_MAP = {
   "null": 1,
@@ -82,17 +82,17 @@ def parse_additions(args):
   return additions
 
 
-def add_crystals(sock, struct_key, additions, replace=False):
+def add_crystals(mem, struct_key, additions, replace=False):
   struct = STRUCTS[struct_key]
   count_addr = struct["count_addr"]
   array_addr = struct["array_addr"]
 
-  current_count = gdb_rsp.read_memory(sock, count_addr, 1)[0]
+  current_count = mem.read(count_addr, 1)[0]
   print(f"[{struct_key}] Current count: {current_count}")
 
   if replace:
     current_count = 0
-    gdb_rsp.write_memory(sock, count_addr, bytes([current_count]))
+    mem.write(count_addr, bytes([current_count]))
     print(f"[{struct_key}] --replace: reset count to 0 before adding")
 
   total_requested = sum(qty for _, qty in additions)
@@ -103,9 +103,9 @@ def add_crystals(sock, struct_key, additions, replace=False):
     type_name = next(n for n, tid in TYPE_MAP.items() if tid == type_id)
     for _ in range(qty):
       slot_addr = array_addr + current_count * 2
-      gdb_rsp.write_memory(sock, slot_addr, bytes([type_id, MARKER_BYTE]))
+      mem.write(slot_addr, bytes([type_id, MARKER_BYTE]))
       current_count += 1
-      gdb_rsp.write_memory(sock, count_addr, bytes([current_count]))
+      mem.write(count_addr, bytes([current_count]))
       print(f"  added {type_name} (type {type_id}) at slot {current_count - 1} (0x{slot_addr:08x}) - count now {current_count}")
 
 
@@ -135,15 +135,15 @@ if __name__ == "__main__":
 
   additions = parse_additions(argv)
 
-  sock = gdb_rsp.connect()
+  mem = FastMemWriter()
   try:
     if struct_key == "both":
-      add_crystals(sock, "il", additions, replace=replace)
-      add_crystals(sock, "ool", additions, replace=replace)
+      add_crystals(mem, "il", additions, replace=replace)
+      add_crystals(mem, "ool", additions, replace=replace)
     else:
-      add_crystals(sock, struct_key, additions, replace=replace)
+      add_crystals(mem, struct_key, additions, replace=replace)
 
 
   finally:
-    gdb_rsp.cmd_continue(sock)
+    mem.close()
 

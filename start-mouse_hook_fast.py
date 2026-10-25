@@ -7,7 +7,7 @@ to map WASD to the Left Analog Stick and buttons to standard Xbox inputs.
 Requires install_asia_mouselook.py to already be installed.
 
 Usage:
-    python3 mouse_hook_fast.py <hex_pitch_value_addr> <hex_yaw_value_addr> <ram_host_base>
+    python3 mouse_hook_fast.py <hex_pitch_value_addr> <hex_yaw_value_addr>
         [--sensitivity 0.003] [--rate 120] [--invert-y]
 
 """
@@ -16,7 +16,6 @@ import argparse
 import math
 import os
 import struct
-import subprocess
 import sys
 import threading
 from evdev import UInput, AbsInfo, ecodes as e
@@ -24,10 +23,7 @@ from evdev import UInput, AbsInfo, ecodes as e
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), './lib')))
 from iman_client import FilterConnection, EV_REL, EV_KEY # noqa: E402
-
-PHYS_OFFSET = 0xAF000 # virtual -> physical
-RAM_HOST_BASE = int(sys.argv[3], 16)
-sys.argv.__delitem__(3)
+from fastmem import FastMemWriter # noqa: E402
 
 PIDFILE = "/tmp/virtual_xbox_controller.pid"
 FIFO_PATH = "/tmp/virtual_xbox_controller.fifo"
@@ -53,26 +49,6 @@ BTN_MIDDLE = 274
 
 PITCH_MIN = -1.5
 PITCH_MAX = 1.5
-
-
-class FastMemWriter:
-  def __init__(self, pid):
-    self.fd = open(f"/proc/{pid}/mem", "r+b", buffering=0)
-
-  def write_float(self, virtual_addr, value):
-    os.pwrite(self.fd.fileno(), struct.pack("<f", value), RAM_HOST_BASE + virtual_addr + PHYS_OFFSET)
-
-  def read_float(self, virtual_addr):
-    return struct.unpack("<f", os.pread(self.fd.fileno(), 4, RAM_HOST_BASE + virtual_addr + PHYS_OFFSET))[0]
-
-  def close(self):
-    self.fd.close()
-
-
-def find_xemu_pid():
-  out = subprocess.check_output(["pgrep", "-fa", "^xemu"]).decode()
-  print(out)
-  return int(out.split()[0])
 
 
 class GamepadClient:
@@ -119,9 +95,8 @@ def main():
   pitch_addr = int(args.pitch_addr, 16)
   yaw_addr = int(args.yaw_addr, 16)
 
-  pid = find_xemu_pid()
-  print(f"xemu PID: {pid}")
-  writer = FastMemWriter(pid)
+  writer = FastMemWriter()
+  print(f"xemu PID: {writer.pid}  RAM base: 0x{writer.ram_base:x}")
   gamepad = GamepadClient()
 
   pitch = writer.read_float(pitch_addr)

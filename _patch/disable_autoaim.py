@@ -10,7 +10,7 @@ import sys, os
 
 sys.path.insert(0, ".")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
-from gdb_rsp import connect, read_memory, write_memory, cmd_continue
+from fastmem import FastMemWriter  # noqa: E402
 
 PLAYER = 0x004EAA20
 # (address, expected original bytes, field offset in player object)
@@ -20,18 +20,18 @@ PATCHES = [
 ]
 NEW = bytes.fromhex("ddd8") + b"\x90" * 4
 
-sock = connect()
+mem = FastMemWriter()
 try:
   for addr, expected, _ in PATCHES:
-    current = read_memory(sock, addr, len(expected))
+    current = mem.read(addr, len(expected))
     if current != expected:
       raise RuntimeError(f"Unexpected bytes at 0x{addr:x}: {current.hex()} (expected {expected.hex()})")
 
   for addr, expected, off in PATCHES:
-    write_memory(sock, addr, NEW)
-    if read_memory(sock, addr, len(NEW)) != NEW:
+    mem.write(addr, NEW)
+    if mem.read(addr, len(NEW)) != NEW:
       raise RuntimeError(f"Write verification failed at 0x{addr:x}")
-    write_memory(sock, PLAYER + off, struct.pack("<f", 0.0))
+    mem.write(PLAYER + off, struct.pack("<f", 0.0))
     print(f"patched 0x{addr:x}, zeroed player+0x{off:x}")
 finally:
-  cmd_continue(sock)
+  mem.close()
