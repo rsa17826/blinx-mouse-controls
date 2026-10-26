@@ -3,7 +3,8 @@
 while :; do
   pkill -9 xemu
   sleep .01
-  LD_LIBRARY_PATH=/run/opengl-driver/lib mangohud xemu -s -qmp tcp:localhost:4444,server,nowait &
+  xemu -s -qmp tcp:localhost:4444,server,nowait &
+  # LD_LIBRARY_PATH=/run/opengl-driver/lib mangohud xemu -s -qmp tcp:localhost:4444,server,nowait &
 
   read _
 done

@@ -245,32 +245,32 @@ def main():
 
           # LButton -> Controller X
           elif code == km.BTN_LEFT:
-            if pressed:
-              btn_left_press_time = time.time()
-              gamepad.write(km.EV_KEY, km.BTN_NORTH, 1)
-              gamepad.syn()
-            else:
-              elapsed = time.time() - btn_left_press_time
-              min_duration = 0.1 # 100ms
+            # if pressed:
+            #   btn_left_press_time = time.time()
+            #   gamepad.write(km.EV_KEY, km.BTN_NORTH, 1)
+            #   gamepad.syn()
+            # else:
+            #   elapsed = time.time() - btn_left_press_time
+            #   min_duration = 0.1 # 100ms
 
-              if elapsed < min_duration:
-                # If released too fast, delay the release in a background thread to fulfill the 100ms minimum
-                remaining = min_duration - elapsed
+            #   if elapsed < min_duration:
+            #     # If released too fast, delay the release in a background thread to fulfill the 100ms minimum
+            #     remaining = min_duration - elapsed
 
-                def delayed_release():
-                  time.sleep(remaining)
-                  gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
-                  gamepad.syn()
+            #     def delayed_release():
+            #       time.sleep(remaining)
+            #       gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
+            #       gamepad.syn()
 
-                threading.Thread(target=delayed_release, daemon=True).start()
-              else:
-                # If held longer than 100ms, release immediately when the physical button goes up
-                gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
-                gamepad.syn()
+            #     threading.Thread(target=delayed_release, daemon=True).start()
+            #   else:
+            #     # If held longer than 100ms, release immediately when the physical button goes up
+            #     gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
+            #     gamepad.syn()
 
 
-            # gamepad.write(km.EV_KEY, km.BTN_NORTH, 1 if pressed else 0)
-            # gamepad.syn()
+            gamepad.write(km.EV_ABS, km.ABS_RZ, 255 if pressed else 0)
+            gamepad.syn()
             block = True
 
           # Space -> Controller A
