@@ -61,7 +61,7 @@ for addr in addrs:
         break
 
 
-    print(f"{world}-{sublv}: {m:02d}:{s:02d}.{ms:03d} {'SABCD_'[i]}+")
+    print(f"{world}-{sublv}: {m:02d}:{s:02d}.{ms:03d} {'SABCD_'[i]}+ {total_ms}")
 
 
 gdb_rsp.cmd_continue(sock)

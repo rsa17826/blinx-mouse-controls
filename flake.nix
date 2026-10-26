@@ -24,52 +24,52 @@
         pythonEnv = pkgs.python313.withPackages (
           ps: with ps; [
             numpy
-            capstone
+            # capstone
             keystone-engine
             evdev
-            pyyaml
-            pyelftools
-            pyxbe
+            # pyyaml
+            # pyelftools
+            # pyxbe
             pyghidra
           ]
         );
 
-        crystal = pkgs.stdenvNoCC.mkDerivation {
-          pname = "crystal";
-          version = "unstable";
+        # crystal = pkgs.stdenvNoCC.mkDerivation {
+        #   pname = "crystal";
+        #   version = "unstable";
 
-          src = pkgs.fetchFromGitHub {
-            owner = "itsybitsypixel";
-            repo = "crystal";
-            rev = "main";
-            hash = "sha256-Lw8hp8bJqt0o5Lrmll0gwPhSCrjyAipfUUIzKGPdnWs=";
-          };
+        #   src = pkgs.fetchFromGitHub {
+        #     owner = "itsybitsypixel";
+        #     repo = "crystal";
+        #     rev = "main";
+        #     hash = "sha256-Lw8hp8bJqt0o5Lrmll0gwPhSCrjyAipfUUIzKGPdnWs=";
+        #   };
 
-          installPhase = ''
-            mkdir -p $out/bin
-            cp -r . $out/crystal
+        #   installPhase = ''
+        #     mkdir -p $out/bin
+        #     cp -r . $out/crystal
 
-            cat > $out/bin/crystal <<EOF
-            #!${pkgs.bash}/bin/bash
-            exec ${pythonEnv}/bin/python3 $out/crystal/crystal.py "\$@"
-            EOF
+        #     cat > $out/bin/crystal <<EOF
+        #     #!${pkgs.bash}/bin/bash
+        #     exec ${pythonEnv}/bin/python3 $out/crystal/crystal.py "\$@"
+        #     EOF
 
-            chmod +x $out/bin/crystal
-          '';
-        };
+        #     chmod +x $out/bin/crystal
+        #   '';
+        # };
       in
       {
-        packages = {
-          default = crystal;
-        };
+        # packages = {
+        #   default = crystal;
+        # };
         devShells = {
           default = pkgs.mkShell {
             packages = with pkgs; [
               ghidra
               jdk21
-              crystal
+              # crystal
               pythonEnv
-              xxd
+              # xxd
               ffmpeg
               git
             ];
