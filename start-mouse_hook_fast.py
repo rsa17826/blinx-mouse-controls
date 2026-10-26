@@ -12,6 +12,7 @@ Usage:
 
 """
 
+import time
 import subprocess
 import argparse
 import math
@@ -32,6 +33,11 @@ import keymap as km
 
 PITCH_MIN = -1.5
 PITCH_MAX = 1.5
+
+# When the byte at RESET_WATCH_ADDR changes to RESET_WATCH_VALUE, the view is reset to pitch 0 / yaw 0.
+# 89 is when in level
+RESET_WATCH_ADDR = 0xF05B987C
+RESET_WATCH_VALUE = 0x89
 
 
 class GamepadClient:
@@ -96,7 +102,7 @@ def main():
   writer.write_float(pitch_addr, pitch)
 
   # Track pressed km.keys for analog stick calculation
-  km.key_states = {
+  key_states = {
     km.KEY_W: False,
     km.KEY_A: False,
     km.KEY_S: False,
@@ -119,6 +125,7 @@ def main():
 
   state_lock = threading.Lock()
   state = {"pitch": pitch, "yaw": yaw, "dirty": False}
+  storedangle = {"pitch": 0.3240000000000002, "yaw": -2.5331853071795454}
   stop_event = threading.Event()
   y_sign = -1.0 if args.invert_y else 1.0
   TWO_PI = 2 * math.pi
@@ -128,10 +135,10 @@ def main():
   def update_left_stick():
     heading_addr = yaw_addr + 12
 
-    side = int(km.key_states[km.KEY_D]) - int(km.key_states[km.KEY_A])
-    fwd = int(km.key_states[km.KEY_W]) - int(km.key_states[km.KEY_S])
+    side = int(key_states[km.KEY_D]) - int(key_states[km.KEY_A])
+    fwd = int(key_states[km.KEY_W]) - int(key_states[km.KEY_S])
 
-    # When no movement km.keys are held, center the analog stick completely (0, 0)
+    # When no movement keys are held, center the analog stick completely (0, 0)
     # This frees up the stick so menus work normally.
     if side == 0 and fwd == 0:
       writer.write_float(heading_addr, 0.0)
@@ -161,7 +168,17 @@ def main():
 
   def flush_loop():
     interval = 1.0 / args.rate
+    last_watch = writer.read(RESET_WATCH_ADDR, 1)[0]
     while not stop_event.wait(interval):
+      watch = writer.read(RESET_WATCH_ADDR, 1)[0]
+      if watch == RESET_WATCH_VALUE and last_watch != RESET_WATCH_VALUE:
+        with state_lock:
+          state["pitch"], state["yaw"] = storedangle["pitch"], storedangle["yaw"]
+          state["dirty"] = True
+
+
+      last_watch = watch
+
       with state_lock:
         if not state["dirty"]:
           continue
@@ -215,18 +232,45 @@ def main():
           pressed = bool(ev["value"])
 
           # WASD -> Left Stick
-          if code in km.key_states:
-            km.key_states[code] = pressed
+          if code in key_states:
+            key_states[code] = pressed
             update_left_stick()
             block = True
 
           elif code == km.KEY_KP7:
             subprocess.Popen(args=["./call/il_superbomb"], executable="./call/il_superbomb")
+          elif code == km.KEY_KP9:
+            storedangle["pitch"], storedangle["yaw"] = state["pitch"], state["yaw"]
+            print(storedangle["pitch"], storedangle["yaw"], 'storedangle["pitch"], storedangle["yaw"]')
 
           # LButton -> Controller X
           elif code == km.BTN_LEFT:
-            gamepad.write(km.EV_KEY, km.BTN_NORTH, 1 if pressed else 0)
-            gamepad.syn()
+            if pressed:
+              btn_left_press_time = time.time()
+              gamepad.write(km.EV_KEY, km.BTN_NORTH, 1)
+              gamepad.syn()
+            else:
+              elapsed = time.time() - btn_left_press_time
+              min_duration = 0.1 # 100ms
+
+              if elapsed < min_duration:
+                # If released too fast, delay the release in a background thread to fulfill the 100ms minimum
+                remaining = min_duration - elapsed
+
+                def delayed_release():
+                  time.sleep(remaining)
+                  gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
+                  gamepad.syn()
+
+                threading.Thread(target=delayed_release, daemon=True).start()
+              else:
+                # If held longer than 100ms, release immediately when the physical button goes up
+                gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
+                gamepad.syn()
+
+
+            # gamepad.write(km.EV_KEY, km.BTN_NORTH, 1 if pressed else 0)
+            # gamepad.syn()
             block = True
 
           # Space -> Controller A
