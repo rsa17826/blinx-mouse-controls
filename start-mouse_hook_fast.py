@@ -80,7 +80,7 @@ def main():
   parser.add_argument("--rate", type=float, default=120.0, help="max write flush rate in Hz")
   parser.add_argument("--invert-y", action="store_true")
   args = parser.parse_args()
-  paused = False
+  paused = True
   pitch_addr = int(args.pitch_addr, 16)
   yaw_addr = int(args.yaw_addr, 16)
 
@@ -241,7 +241,7 @@ def main():
             subprocess.Popen(args=["./call/il_superbomb"], executable="./call/il_superbomb")
           elif code == km.KEY_KP9:
             storedangle["pitch"], storedangle["yaw"] = state["pitch"], state["yaw"]
-            print(storedangle["pitch"], storedangle["yaw"], 'storedangle["pitch"], storedangle["yaw"]')
+            print(f'\n\nstoredangle = {"{"}"pitch": {storedangle["pitch"]}, "yaw": {storedangle["yaw"]}{"}"}\n\n')
 
           # LButton -> Controller X
           elif code == km.BTN_LEFT:
