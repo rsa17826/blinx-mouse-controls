@@ -9,6 +9,7 @@ Take one snapshot with fast-forward off and one with it on (same room, no
 menus), then diff. Prints guest addresses whose float went 1.0->2.0,
 2.0->1.0, 0.5->1.0 or 1.0->0.5.
 """
+
 import array
 import struct
 import subprocess
@@ -40,8 +41,11 @@ def snap(ram_base, out_path):
       chunk = mem.read(min(remaining, 0x100000))
       if len(chunk) == 0:
         raise RuntimeError(f"Short read with {remaining} bytes left")
+
       out.write(chunk)
       remaining -= len(chunk)
+
+
   print(f"Saved {SIZE:#x} bytes to {out_path}")
 
 
@@ -49,6 +53,7 @@ def load(path):
   words = array.array("I")
   with open(path, "rb") as f:
     words.fromfile(f, SIZE // 4)
+
   return words
 
 
@@ -62,6 +67,9 @@ def diff(path_a, path_b):
       if label is not None:
         print(f"  0x{START + i * 4:08x}: {label}")
         found += 1
+
+
+
   print(f"{found} candidate(s)")
 
 
@@ -69,6 +77,7 @@ def plausible(v):
   # Small integer, or a float with a sane magnitude.
   if v <= 16:
     return True
+
   f = struct.unpack("<f", struct.pack("<I", v))[0]
   return f == f and 0.01 <= abs(f) <= 16.0
 
@@ -82,6 +91,8 @@ def diff4(path_off1, path_on1, path_on2, path_off2):
       fb = struct.unpack("<f", struct.pack("<I", b))[0]
       print(f"  0x{START + i * 4:08x}: off=0x{a:08x} ({fa:g}) on=0x{b:08x} ({fb:g})")
       found += 1
+
+
   print(f"{found} candidate(s)")
 
 
@@ -94,3 +105,4 @@ if __name__ == "__main__":
     diff(sys.argv[2], sys.argv[3])
   else:
     raise RuntimeError(f"Unknown mode {sys.argv[1]}")
+

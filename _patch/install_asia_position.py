@@ -33,7 +33,7 @@ import struct
 import sys, os
 
 sys.path.insert(0, ".")
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib")))
 from fastmem import FastMemWriter # noqa: E402
 
 try:

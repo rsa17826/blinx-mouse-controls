@@ -11,5 +11,6 @@ try:
   for addr in range(0xF0A9474E, 0xF0A94757 + 0x1, 0x1):
     mem.write(addr, thing)
 
+
 finally:
   mem.close()

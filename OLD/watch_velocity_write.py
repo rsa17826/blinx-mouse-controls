@@ -16,6 +16,7 @@ Usage:
     num_hits: how many writes to catch before stopping (default 15)
     --offset: which field to watch, relative to PlayerBase (default 0xb8,
         X-velocity). Use 0xc0 to instead watch Z-velocity.
+
 """
 
 import argparse
@@ -23,14 +24,14 @@ import sys
 
 sys.path.insert(0, ".")
 from gdb_rsp import ( # noqa: E402
-    connect,
-    read_memory,
-    set_watchpoint,
-    remove_watchpoint,
-    wait_for_stop,
-    read_all_registers,
-    parse_registers,
-    send_packet,
+  connect,
+  read_memory,
+  set_watchpoint,
+  remove_watchpoint,
+  wait_for_stop,
+  read_all_registers,
+  parse_registers,
+  send_packet,
 )
 
 PLAYER_BASE_PTR_ADDR = 0x004EAA04
@@ -90,14 +91,18 @@ def main():
       except Exception as e:
         print(f"  field read failed: {e}")
 
+
+
   except KeyboardInterrupt:
     print("\nStopped by user.")
 
   finally:
     try:
       remove_watchpoint(sock, watch_addr, args.field_size, kind=b"2")
+
     except Exception as e:
       print(f"(failed to remove watchpoint cleanly: {e})")
+
 
 
 if __name__ == "__main__":

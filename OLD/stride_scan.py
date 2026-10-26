@@ -37,4 +37,3 @@ for stride in range(1, max_stride + 1):
     print(f"    before: {data[max(0, start - 16) : start].tobytes().hex(' ')}")
     print(f"    run:    {data[start : start + (COUNT - 1) * stride + 1].tobytes().hex(' ')}")
 
-
