@@ -2,9 +2,9 @@
 PITCH=0x00141fb5
 YAW=0x00141fb9
 (
-  echo './_patch/disable_autoaim.py' &&
-    ./_patch/disable_autoaim.py &&
-    echo './_patch/install_zero_stick_angle.py 0x1d7c00' &&
+  # echo './_patch/disable_autoaim.py' &&
+  #   ./_patch/disable_autoaim.py &&
+  echo './_patch/install_zero_stick_angle.py 0x1d7c00' &&
     ./_patch/install_zero_stick_angle.py 0x1d7c00 &&
     echo './_patch/fix_wrong_walk_dir.py 0x1d7b00' &&
     ./_patch/fix_wrong_walk_dir.py 0x1d7b00 &&
