@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 PITCH=0x00141fb5
 YAW=0x00141fb9
+PI=0x00141fbd
 (
   # echo './_patch/disable_autoaim.py' &&
   #   ./_patch/disable_autoaim.py &&
@@ -15,6 +16,8 @@ YAW=0x00141fb9
     # don't change shot direction while ff active
     echo './_patch/install_shot_direction.py 0x1d7e32 $PITCH $YAW 1' &&
     ./_patch/install_shot_direction.py 0x1d7e32 $PITCH $YAW 1 &&
+    echo './_patch/install_suck_camera_heading.py 0x1d7f00 $YAW $PI' &&
+    ./_patch/install_suck_camera_heading.py 0x1d7f00 $YAW $PI &&
     echo './_patch/install_asia_position.py 0x001d797c $YAW -18 '-25 &&
     ./_patch/install_asia_position.py 0x001d797c $YAW -18 -25
 ) || (

@@ -104,31 +104,31 @@ def build_pitch_trampoline(ks, cave_addr, value_addr, return_addr, tail_addr):
 
 def build_yaw_trampoline(ks, cave_addr, value_addr, pi_scratch, render_yaw_offset_addr, return_addr, heading_offset_addr, walk_heading_addr):
   code = f"""
-        fstp st(0)
-        fld dword ptr [0x{value_addr:x}]
-        push eax
-        push edx
-        mov edx, 0x{PLAYER_PTR_ADDR:x}
-        mov eax, dword ptr [edx]
-        test eax, eax
-        jz skip_heading
-        fld st(0)
-        fadd dword ptr [0x{pi_scratch:x}]
-        fadd dword ptr [0x{heading_offset_addr:x}]
+      fstp st(0)
+      fld dword ptr [0x{value_addr:x}]
+      push eax
+      push edx
+      mov edx, 0x{PLAYER_PTR_ADDR:x}
+      mov eax, dword ptr [edx]
+      test eax, eax
+      jz skip_heading
+      fld st(0)
+      fadd dword ptr [0x{pi_scratch:x}]
+      fadd dword ptr [0x{heading_offset_addr:x}]
         cmp dword ptr [0x{CUTSCENE_FLAG_ADDR:x}], 0
         jne cutscene_store
         fstp dword ptr [eax + 0x{HEADING_OFFSET:x}]
         jmp skip_heading
     cutscene_store:
-        fstp dword ptr [0x{walk_heading_addr:x}]
+      fstp dword ptr [0x{walk_heading_addr:x}]
 
-    skip_heading:
-        fadd dword ptr [0x{render_yaw_offset_addr:x}]
-        pop edx
-        pop eax
-        jmp 0x{return_addr:x}
+  skip_heading:
+      fadd dword ptr [0x{render_yaw_offset_addr:x}]
+      pop edx
+      pop eax
+      jmp 0x{return_addr:x}
 
-    """
+  """
   encoded = asm(ks, code, cave_addr)
   if len(encoded) > YAW_SLOT:
     raise RuntimeError(f"Yaw trampoline exceeds budget ({len(encoded)} bytes).")

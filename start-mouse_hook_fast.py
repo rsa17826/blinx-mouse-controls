@@ -268,7 +268,6 @@ def main():
             #     gamepad.write(km.EV_KEY, km.BTN_NORTH, 0)
             #     gamepad.syn()
 
-
             gamepad.write(km.EV_ABS, km.ABS_RZ, 255 if pressed else 0)
             gamepad.syn()
             block = True
