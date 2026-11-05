@@ -48,7 +48,7 @@ def verified_write(sock, addr, data, label):
 
 
 def main():
-  if len(sys.argv) < 5:
+  if len(sys.argv) < 4:
     print(__doc__)
     sys.exit(1)
 

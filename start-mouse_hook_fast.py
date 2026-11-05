@@ -141,7 +141,7 @@ def main():
     # When no movement keys are held, center the analog stick completely (0, 0)
     # This frees up the stick so menus work normally.
     if side == 0 and fwd == 0:
-      writer.write_float(heading_addr, 0.0)
+      # writer.write_float(heading_addr, 0.0)
       gamepad.write(km.EV_ABS, km.ABS_X, 0)
       gamepad.write(km.EV_ABS, km.ABS_Y, 0)
       gamepad.syn()
@@ -269,6 +269,7 @@ def main():
             #     gamepad.syn()
 
             gamepad.write(km.EV_ABS, km.ABS_RZ, 255 if pressed else 0)
+            # gamepad.write(km.EV_KEY, km.BTN_NORTH, 1 if pressed else 0)
             gamepad.syn()
             block = True
 
