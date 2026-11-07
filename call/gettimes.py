@@ -61,7 +61,46 @@ for addr in addrs:
         break
 
 
-    print(f"{world}-{sublv}: {m:02d}:{s:02d}.{ms:03d} {'SABCD_'[i]}+ {total_ms}")
+    name = (
+      "Time Square stage 1",
+      "Time Square stage 2",
+      "Time Square stage 3",
+      "Time Square Boss",
+      "Deja Vu Canals stage 1",
+      "Deja Vu Canals stage 2",
+      "Deja Vu Canals stage 3",
+      "Deja Vu Canals boss",
+      "Hourglass caves stage 1",
+      "Hourglass caves stage 2",
+      "Hourglass caves stage 3",
+      "Hourglass caves boss",
+      "Forgotten City stage 1",
+      "Forgotten City stage 2",
+      "Forgotten City stage 3",
+      "Forgotten City boss",
+      "Temple of Lost Time stage 1",
+      "Temple of Lost Time stage 2",
+      "Temple of Lost Time stage 3",
+      "Temple of Lost Time boss",
+      "Mine of Precious Moments stage 1",
+      "Mine of Precious Moments stage 2",
+      "Mine of Precious Moments stage 3",
+      "Mine of Precious Moments boss",
+      "Everwinter stage 1",
+      "Everwinter stage 2",
+      "Everwinter stage 3",
+      "Everwinter boss",
+      "Forge of Hours stage 1",
+      "Forge of Hours stage 2",
+      "Forge of Hours stage 3",
+      "Forge of Hours boss",
+      "Momentopolis (final boss",
+    )[lv]
+    if "ms-only" in matches:
+      print(total_ms)
+    else:
+      print(f"{world}-{sublv} - {name}: {m:02d}:{s:02d}.{ms:03d} {'SABCD_'[i]}+ {total_ms}")
+
 
 
 gdb_rsp.cmd_continue(sock)
