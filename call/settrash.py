@@ -7,9 +7,9 @@ from fastmem import FastMemWriter
 mem = FastMemWriter()
 try:
   thing = bytes.fromhex(sys.argv[1])
-  mem.write(0xF0A9474D, bytes([0xA]))
-  for addr in range(0xF0A9474E, 0xF0A94757 + 0x1, 0x1):
-    mem.write(addr, thing)
+  mem.write(0x009E374D, bytes([0xA]))
+  for addr in range(1, 12, 0x1):
+    mem.write(0x009E374D + addr, thing)
 
 
 finally:

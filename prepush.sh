@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 shopt -s nullglob
 rm -f ./*.{bin,npy,json,txt}
+
