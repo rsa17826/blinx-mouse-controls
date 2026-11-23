@@ -530,7 +530,6 @@ if __name__ == "__main__":
     path = sys.argv[4]
     cmd_dump(sock, addr, length, path)
     cmd_continue(sock)
-
   elif mode == "write":
     sock = connect()
     addr = int(sys.argv[2], 16)
