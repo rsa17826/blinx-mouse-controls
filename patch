@@ -19,7 +19,9 @@ PI=0x00141fbd
     echo -e '\e[36m./_patch/install_suck_camera_heading.py 0x1d7f00 $YAW $PI \e[0m' &&
     ./_patch/install_suck_camera_heading.py 0x1d7f00 $YAW $PI &&
     echo -e '\e[36m./_patch/install_asia_position.py 0x001d797c $YAW -18 -25\e[0m' &&
-    ./_patch/install_asia_position.py 0x001d797c $YAW -18 -25
+    ./_patch/install_asia_position.py 0x001d797c $YAW -18 -25 &&
+    echo -e '\e[36m./_patch/install_asia_position.py 0x001d797c $YAW -18 -25\e[0m' &&
+    ./_patch/disable_long_fall.py
 ) || (
   echo -e "\e[31mFAILED!\e[0m"
   exit 1
