@@ -33,7 +33,7 @@
 0x20=small ball of glow - renders as rectanglur flower box in sweeper
 0x21=small ball of glow - renders as rectanglur flower box in sweeper
 0x22=unknown - renders as rectanglur flower box in sweeper - CRASHES WHEN SHOT
-0x23=sidewars minecart
+0x23=sideways minecart
 0x24=plank of wood - 2x4
 0x25=green spinning upside down poleice light - renders as rectanglur flower box in sweeper
 0x26=green spinning upside down poleice light - renders as rectanglur flower box in sweeper
@@ -130,8 +130,8 @@
 0x81=crash on load
 0x82=crash on load
 0x83=crash on load
-0x84=nothing - renders as goal gate png in inventory - can kill anything
-0x85=nothing - renders as red glowing circle light in inventory - can kill anything
+0x84=nothing - renders as goal gate png in inventory - can kill things
+0x85=nothing - renders as red glowing circle light in inventory - can kill things
 0x86=crash on load
 0x87=crash on load
 0x88=crash on load
