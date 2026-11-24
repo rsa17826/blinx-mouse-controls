@@ -36,8 +36,8 @@ PITCH_MAX = 1.5
 
 # When the byte at RESET_WATCH_ADDR changes to RESET_WATCH_VALUE, the view is reset to pitch 0 / yaw 0.
 # 89 is when in level
-RESET_WATCH_ADDR = 0xf0c45b8a
-  # 0xf0c4a864
+RESET_WATCH_ADDR = 0xF0C45B8A
+# 0xf0c4a864
 RESET_WATCH_VALUE = 0x89
 
 
@@ -74,6 +74,7 @@ class GamepadClient:
 
 
 def main():
+  enterPressed = False
   parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
   parser.add_argument("pitch_addr", help="hex address of pitch_value scratch float")
   parser.add_argument("yaw_addr", help="hex address of yaw_value scratch float")
@@ -173,13 +174,15 @@ def main():
     while not stop_event.wait(interval):
       watch = writer.read(RESET_WATCH_ADDR, 1)[0]
       # print(watch, RESET_WATCH_VALUE)
-      if watch == RESET_WATCH_VALUE and last_watch != RESET_WATCH_VALUE:
+      nonlocal enterPressed
+      if watch == RESET_WATCH_VALUE and (last_watch != RESET_WATCH_VALUE or enterPressed):
         with state_lock:
-          print("level loaded")
+          print(f"level {"could've " if enterPressed else ''}loaded")
           state["pitch"], state["yaw"] = storedangle["pitch"], storedangle["yaw"]
           state["dirty"] = True
 
 
+      enterPressed = False
       last_watch = watch
 
       with state_lock:
@@ -330,6 +333,8 @@ def main():
             gamepad.syn()
             block = True
           elif code == km.KEY_ENTER:
+            nonlocal enterPressed
+            enterPressed = True
             gamepad.write(km.EV_KEY, km.BTN_START, 1 if pressed else 0)
             gamepad.syn()
             block = True
