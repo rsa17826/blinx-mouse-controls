@@ -36,7 +36,8 @@ PITCH_MAX = 1.5
 
 # When the byte at RESET_WATCH_ADDR changes to RESET_WATCH_VALUE, the view is reset to pitch 0 / yaw 0.
 # 89 is when in level
-RESET_WATCH_ADDR = 0xF05B987C
+RESET_WATCH_ADDR = 0xf0c45b8a
+  # 0xf0c4a864
 RESET_WATCH_VALUE = 0x89
 
 
@@ -171,8 +172,10 @@ def main():
     last_watch = writer.read(RESET_WATCH_ADDR, 1)[0]
     while not stop_event.wait(interval):
       watch = writer.read(RESET_WATCH_ADDR, 1)[0]
+      # print(watch, RESET_WATCH_VALUE)
       if watch == RESET_WATCH_VALUE and last_watch != RESET_WATCH_VALUE:
         with state_lock:
+          print("level loaded")
           state["pitch"], state["yaw"] = storedangle["pitch"], storedangle["yaw"]
           state["dirty"] = True
 
