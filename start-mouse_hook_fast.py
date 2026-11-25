@@ -39,6 +39,7 @@ PITCH_MAX = 1.5
 RESET_WATCH_ADDR = 0xF0C45B8A
 # 0xf0c4a864
 RESET_WATCH_VALUE = 0x89
+# 50987c
 
 
 class GamepadClient:
