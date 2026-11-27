@@ -7,3 +7,4 @@ __pycache__
 .ruff_cache
 data/ghidra
 Blinx - The Time Sweeper (Asia) (En,Ja).xiso
+xemu.toml

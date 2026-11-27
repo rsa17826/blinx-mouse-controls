@@ -1,5 +1,8 @@
 #!/usr/bin/env sh
 
+if test -f xemu.toml; then
+  cp xemu.toml "$HOME/.local/share/xemu/xemu/xemu.toml"
+fi
 while :; do
   pkill -9 xemu
   sleep .01
